@@ -294,6 +294,43 @@ app.post('/api/git/commit-push', (req, res) => {
   }
 });
 
+// Get all branches list
+app.get('/api/git/branches', (req, res) => {
+  const { execSync } = require('child_process');
+  try {
+    const branchesRaw = execSync('git branch -a --format="%(refname:short)"', { cwd: WORKSPACE_DIR, encoding: 'utf8', timeout: 5000 });
+    const branches = branchesRaw
+      .split('\n')
+      .map((b: string) => b.trim())
+      .filter((b: string) => b && !b.includes('HEAD') && !b.startsWith('origin/HEAD'));
+    
+    const uniqueBranches = Array.from(new Set(branches));
+    res.json({ success: true, branches: uniqueBranches });
+  } catch (err: any) {
+    res.json({ success: false, error: err.message });
+  }
+});
+
+// Checkout a branch
+app.post('/api/git/checkout', (req, res) => {
+  const { branch } = req.body;
+  if (!branch) {
+    return res.status(400).json({ error: 'Branch name is required' });
+  }
+  const { execSync } = require('child_process');
+  try {
+    let target = branch;
+    if (branch.startsWith('origin/')) {
+      target = branch.replace('origin/', '');
+    }
+    const output = execSync(`git checkout ${target}`, { cwd: WORKSPACE_DIR, encoding: 'utf8', timeout: 10000 });
+    res.json({ success: true, output });
+  } catch (err: any) {
+    const errMsg = (err.stderr || err.stdout || err.message || 'Unknown error');
+    res.json({ success: false, error: errMsg });
+  }
+});
+
 // PTY Emulation & Fallback
 let ptySupported = process.env.USE_NODE_PTY !== 'false';
 let ptyModule: any = null;
