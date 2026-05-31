@@ -116,7 +116,34 @@ function listFilesFlat(dir: string, baseDir: string = dir): FileItem[] {
 app.get('/api/files', (req, res) => {
   try {
     const files = listFilesFlat(WORKSPACE_DIR);
-    res.json({ files });
+    res.json({ files, workspace: WORKSPACE_DIR });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/workspace', (req, res) => {
+  try {
+    const { path: newPath } = req.body;
+    if (!newPath) {
+      return res.status(400).json({ error: 'Path is required' });
+    }
+    
+    // Resolve absolute path
+    const resolved = path.resolve(newPath);
+    if (!fs.existsSync(resolved)) {
+      return res.status(404).json({ error: `Directory does not exist: ${newPath}` });
+    }
+    
+    // Verify it is a directory
+    const stat = fs.statSync(resolved);
+    if (!stat.isDirectory()) {
+      return res.status(400).json({ error: 'Path is not a directory' });
+    }
+    
+    WORKSPACE_DIR = resolved;
+    console.log("Workspace dynamically switched to:", WORKSPACE_DIR);
+    res.json({ success: true, workspace: WORKSPACE_DIR });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }

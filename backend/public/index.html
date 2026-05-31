@@ -635,6 +635,11 @@
             <i class="fa-solid fa-arrows-rotate" onclick="loadFilesList()" title="Refresh"></i>
           </div>
         </div>
+        <div class="workspace-path-bar" style="padding: 8px 12px; border-bottom: 1px solid var(--border); display: flex; gap: 8px; align-items: center; background: rgba(255,255,255,0.02);">
+          <i class="fa-regular fa-folder-open" style="color: var(--primary); font-size: 13px;"></i>
+          <input type="text" id="workspace-path-input" style="flex: 1; background: transparent; border: none; color: var(--text-muted); font-size: 11px; font-family: monospace; outline: none; text-overflow: ellipsis; white-space: nowrap; overflow: hidden;" readonly onclick="changeWorkspacePrompt()" />
+          <i class="fa-solid fa-pen" style="font-size: 11px; cursor: pointer; color: var(--text-muted); padding: 4px;" onclick="changeWorkspacePrompt()" title="Đổi thư mục"></i>
+        </div>
         <div class="file-tree-container" id="file-tree">
           <!-- Dinamic items here -->
         </div>
@@ -736,6 +741,12 @@
       try {
         const response = await fetch(`${serverUrl}/api/files`);
         const data = await response.json();
+        if (data.workspace) {
+          const pathInput = document.getElementById('workspace-path-input');
+          if (pathInput) {
+            pathInput.value = data.workspace;
+          }
+        }
         const container = document.getElementById('file-tree');
         container.innerHTML = '';
 
@@ -767,6 +778,32 @@
         });
       } catch (err) {
         console.error("Error loading files list:", err);
+      }
+    }
+
+    // Change dynamic workspace folder
+    async function changeWorkspacePrompt() {
+      const currentPath = document.getElementById('workspace-path-input').value;
+      const newPath = prompt("Nhập đường dẫn thư mục muốn mở trên máy chủ (Ví dụ: /opt/render/project/src hoặc C:/Project/project-khac):", currentPath);
+      if (newPath && newPath.trim() !== currentPath.trim()) {
+        try {
+          const response = await fetch(`${serverUrl}/api/workspace`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ path: newPath.trim() })
+          });
+          const data = await response.json();
+          if (data.error) {
+            alert(`Lỗi khi chuyển thư mục: ${data.error}`);
+          } else {
+            alert(`Đã chuyển thư mục làm việc thành công sang: ${data.workspace}`);
+            window.location.reload();
+          }
+        } catch (err) {
+          alert(`Lỗi kết nối máy chủ: ${err.message}`);
+        }
       }
     }
 
