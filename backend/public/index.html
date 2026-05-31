@@ -847,9 +847,10 @@
 
       <div style="display:flex;flex-direction:column;gap:6px;">
         <label style="font-size:11px;color:var(--text-muted);">Model AI:</label>
-        <select id="agent-settings-model" style="background:var(--bg-input);border:1px solid var(--border);border-radius:6px;padding:8px;color:white;font-size:12px;outline:none;width:100%;">
+        <select id="agent-settings-model" onchange="onModelChange()" style="background:var(--bg-input);border:1px solid var(--border);border-radius:6px;padding:8px;color:white;font-size:12px;outline:none;width:100%;">
           <!-- Will be populated dynamically -->
         </select>
+        <input type="text" id="agent-settings-model-custom" placeholder="Nhập tên Model (ví dụ: gemini-2.5-flash)..." style="display:none;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;padding:8px 12px;color:white;font-size:12px;outline:none;width:100%;box-sizing:border-box;margin-top:4px;" />
       </div>
 
       <!-- Free Google API Key button -->
@@ -1792,12 +1793,14 @@
     const geminiModelsList = [
       { value: 'gemini-2.0-flash', label: 'gemini-2.0-flash (Mới & Nhanh)' },
       { value: 'gemini-1.5-flash-latest', label: 'gemini-1.5-flash' },
-      { value: 'gemini-1.5-pro', label: 'gemini-1.5-pro (Mạnh mẽ)' }
+      { value: 'gemini-1.5-pro', label: 'gemini-1.5-pro (Mạnh mẽ)' },
+      { value: 'custom', label: 'Tự nhập tên model khác...' }
     ];
 
     const openaiModelsList = [
       { value: 'gpt-4o-mini', label: 'gpt-4o-mini (Khuyên dùng)' },
-      { value: 'gpt-4o', label: 'gpt-4o' }
+      { value: 'gpt-4o', label: 'gpt-4o' },
+      { value: 'custom', label: 'Tự nhập tên model khác...' }
     ];
 
     function toggleAgentSettings() {
@@ -1806,10 +1809,27 @@
       if (isAgentSettingsOpen) {
         settingsPanel.style.display = 'flex';
         // Load values from localStorage
-        document.getElementById('agent-settings-provider').value = localStorage.getItem('agent_provider') || 'gemini';
-        document.getElementById('agent-settings-key').value = localStorage.getItem('agent_api_key') || '';
+        const provider = localStorage.getItem('agent_provider') || 'gemini';
+        const key = localStorage.getItem('agent_api_key') || '';
+        const savedModel = localStorage.getItem('agent_model') || getDefaultModel();
+
+        document.getElementById('agent-settings-provider').value = provider;
+        document.getElementById('agent-settings-key').value = key;
+        
         populateModelsDropdown();
-        document.getElementById('agent-settings-model').value = localStorage.getItem('agent_model') || getDefaultModel();
+
+        // Determine if savedModel is in list or custom
+        const list = provider === 'gemini' ? geminiModelsList : openaiModelsList;
+        const found = list.find(m => m.value === savedModel && m.value !== 'custom');
+
+        if (found) {
+          document.getElementById('agent-settings-model').value = savedModel;
+          document.getElementById('agent-settings-model-custom').style.display = 'none';
+        } else {
+          document.getElementById('agent-settings-model').value = 'custom';
+          document.getElementById('agent-settings-model-custom').style.display = 'block';
+          document.getElementById('agent-settings-model-custom').value = savedModel;
+        }
       } else {
         settingsPanel.style.display = 'none';
       }
@@ -1817,6 +1837,18 @@
 
     function onProviderChange() {
       populateModelsDropdown();
+      onModelChange();
+    }
+
+    function onModelChange() {
+      const modelVal = document.getElementById('agent-settings-model').value;
+      const customInput = document.getElementById('agent-settings-model-custom');
+      if (modelVal === 'custom') {
+        customInput.style.display = 'block';
+        customInput.focus();
+      } else {
+        customInput.style.display = 'none';
+      }
     }
 
     function populateModelsDropdown() {
@@ -1840,12 +1872,20 @@
     function saveAgentSettings() {
       const provider = document.getElementById('agent-settings-provider').value;
       const key = document.getElementById('agent-settings-key').value.trim();
-      const model = document.getElementById('agent-settings-model').value;
-      
+      let model = document.getElementById('agent-settings-model').value;
+
+      if (model === 'custom') {
+        model = document.getElementById('agent-settings-model-custom').value.trim();
+        if (!model) {
+          alert('Vui lòng nhập tên Model AI mong muốn!');
+          return;
+        }
+      }
+
       localStorage.setItem('agent_provider', provider);
       localStorage.setItem('agent_api_key', key);
       localStorage.setItem('agent_model', model);
-      
+
       alert('Đã lưu cấu hình AI Agent thành công! 🎉');
       toggleAgentSettings();
     }
