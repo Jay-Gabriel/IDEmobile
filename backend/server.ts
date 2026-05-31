@@ -499,10 +499,24 @@ io.on('connection', (socket) => {
   });
 
   // AI Agent prompt handler
-  socket.on('agent-prompt', async (prompt: string) => {
+  socket.on('agent-prompt', async (data: any) => {
+    let prompt = '';
+    let customKey: string | undefined;
+    let provider: string | undefined;
+    let model: string | undefined;
+
+    if (typeof data === 'string') {
+      prompt = data;
+    } else if (data && typeof data === 'object') {
+      prompt = data.text || '';
+      customKey = data.apiKey;
+      provider = data.provider;
+      model = data.model;
+    }
+
     console.log(`Agent prompt received: ${prompt}`);
     try {
-      await runAgent(prompt, socket, WORKSPACE_DIR);
+      await runAgent(prompt, socket, WORKSPACE_DIR, { customKey, provider, model });
     } catch (error: any) {
       socket.emit('agent-stream', { type: 'error', content: error.message });
       socket.emit('agent-stream', { type: 'done' });

@@ -820,11 +820,49 @@
     <i class="fa-solid fa-robot"></i>
   </div>
   
-  <div class="agent-chat-panel" id="agent-chat-panel">
-    <div class="chat-header">
-      <h3><i class="fa-solid fa-wand-magic-sparkles"></i> Antigravity Agent</h3>
-      <span class="chat-close" onclick="toggleAgentChat()"><i class="fa-solid fa-xmark"></i></span>
+  <div class="agent-chat-panel" id="agent-chat-panel" style="position:relative;">
+    <div class="chat-header" style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;">
+      <h3 style="margin:0;font-size:14px;font-weight:600;"><i class="fa-solid fa-wand-magic-sparkles" style="color:var(--primary);margin-right:6px;"></i> Antigravity Agent</h3>
+      <div style="display:flex;align-items:center;gap:12px;">
+        <i class="fa-solid fa-gear" id="chat-settings-toggle" onclick="toggleAgentSettings()" style="cursor:pointer;color:var(--text-muted);font-size:14px;transition:color 0.2s;" onmouseenter="this.style.color='white'" onmouseleave="this.style.color='var(--text-muted)'" title="Cài đặt AI Agent"></i>
+        <span class="chat-close" onclick="toggleAgentChat()" style="cursor:pointer;color:var(--text-muted);font-size:14px;"><i class="fa-solid fa-xmark"></i></span>
+      </div>
     </div>
+    
+    <!-- Chat Settings View (toggled by gear icon) -->
+    <div id="agent-chat-settings" style="display:none;position:absolute;inset:46px 0 0 0;background:var(--bg-panel);z-index:100;padding:16px;flex-direction:column;gap:14px;border-top:1px solid var(--border);box-sizing:border-box;">
+      <h4 style="font-size:13px;margin:0;font-weight:600;color:white;">Cài đặt AI Agent</h4>
+      <div style="display:flex;flex-direction:column;gap:6px;">
+        <label style="font-size:11px;color:var(--text-muted);">Dịch vụ AI (Provider):</label>
+        <select id="agent-settings-provider" onchange="onProviderChange()" style="background:var(--bg-input);border:1px solid var(--border);border-radius:6px;padding:8px;color:white;font-size:12px;outline:none;width:100%;">
+          <option value="gemini">Google Gemini</option>
+          <option value="openai">OpenAI</option>
+        </select>
+      </div>
+      
+      <div style="display:flex;flex-direction:column;gap:6px;">
+        <label style="font-size:11px;color:var(--text-muted);">API Key của bạn:</label>
+        <input type="password" id="agent-settings-key" placeholder="Dán API Key vào đây..." style="background:var(--bg-input);border:1px solid var(--border);border-radius:6px;padding:8px 12px;color:white;font-size:12px;outline:none;width:100%;box-sizing:border-box;" />
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:6px;">
+        <label style="font-size:11px;color:var(--text-muted);">Model AI:</label>
+        <select id="agent-settings-model" style="background:var(--bg-input);border:1px solid var(--border);border-radius:6px;padding:8px;color:white;font-size:12px;outline:none;width:100%;">
+          <!-- Will be populated dynamically -->
+        </select>
+      </div>
+
+      <!-- Free Google API Key button -->
+      <a href="https://aistudio.google.com/" target="_blank" style="text-decoration:none;display:flex;align-items:center;justify-content:center;gap:8px;background:rgba(99,102,241,0.15);border:1px solid var(--primary);border-radius:6px;padding:8px;color:#a5b4fc;font-size:11px;font-weight:600;cursor:pointer;transition:all 0.2s;" onmouseenter="this.style.background='rgba(99,102,241,0.25)'" onmouseleave="this.style.background='rgba(99,102,241,0.15)'">
+        <i class="fa-brands fa-google"></i> Đăng nhập Google lấy API Key Gemini miễn phí
+      </a>
+
+      <div style="margin-top:auto;display:flex;gap:8px;justify-content:flex-end;">
+        <button class="btn btn-secondary" style="padding:6px 12px;font-size:11px;" onclick="toggleAgentSettings()">Đóng</button>
+        <button class="btn" style="padding:6px 12px;font-size:11px;" onclick="saveAgentSettings()">Lưu</button>
+      </div>
+    </div>
+
     <div class="chat-messages" id="chat-messages-container">
       <div class="chat-msg agent">Xin chào! Tôi là Antigravity Agent. Hãy nhập yêu cầu của bạn, ví dụ: "Viết hàm tính số Fibonacci vào file main.js".</div>
     </div>
@@ -1749,6 +1787,69 @@
       activeToolMsgElement = null;
     }
 
+    let isAgentSettingsOpen = false;
+
+    const geminiModelsList = [
+      { value: 'gemini-2.0-flash', label: 'gemini-2.0-flash (Mới & Nhanh)' },
+      { value: 'gemini-1.5-flash-latest', label: 'gemini-1.5-flash' },
+      { value: 'gemini-1.5-pro', label: 'gemini-1.5-pro (Mạnh mẽ)' }
+    ];
+
+    const openaiModelsList = [
+      { value: 'gpt-4o-mini', label: 'gpt-4o-mini (Khuyên dùng)' },
+      { value: 'gpt-4o', label: 'gpt-4o' }
+    ];
+
+    function toggleAgentSettings() {
+      isAgentSettingsOpen = !isAgentSettingsOpen;
+      const settingsPanel = document.getElementById('agent-chat-settings');
+      if (isAgentSettingsOpen) {
+        settingsPanel.style.display = 'flex';
+        // Load values from localStorage
+        document.getElementById('agent-settings-provider').value = localStorage.getItem('agent_provider') || 'gemini';
+        document.getElementById('agent-settings-key').value = localStorage.getItem('agent_api_key') || '';
+        populateModelsDropdown();
+        document.getElementById('agent-settings-model').value = localStorage.getItem('agent_model') || getDefaultModel();
+      } else {
+        settingsPanel.style.display = 'none';
+      }
+    }
+
+    function onProviderChange() {
+      populateModelsDropdown();
+    }
+
+    function populateModelsDropdown() {
+      const provider = document.getElementById('agent-settings-provider').value;
+      const select = document.getElementById('agent-settings-model');
+      select.innerHTML = '';
+      const list = provider === 'gemini' ? geminiModelsList : openaiModelsList;
+      list.forEach(m => {
+        const opt = document.createElement('option');
+        opt.value = m.value;
+        opt.textContent = m.label;
+        select.appendChild(opt);
+      });
+    }
+
+    function getDefaultModel() {
+      const provider = document.getElementById('agent-settings-provider').value;
+      return provider === 'gemini' ? 'gemini-2.0-flash' : 'gpt-4o-mini';
+    }
+
+    function saveAgentSettings() {
+      const provider = document.getElementById('agent-settings-provider').value;
+      const key = document.getElementById('agent-settings-key').value.trim();
+      const model = document.getElementById('agent-settings-model').value;
+      
+      localStorage.setItem('agent_provider', provider);
+      localStorage.setItem('agent_api_key', key);
+      localStorage.setItem('agent_model', model);
+      
+      alert('Đã lưu cấu hình AI Agent thành công! 🎉');
+      toggleAgentSettings();
+    }
+
     function sendAgentMessage() {
       const input = document.getElementById('chat-input-field');
       const text = input.value.trim();
@@ -1761,9 +1862,14 @@
       // Initialize agent streaming
       activeAgentMsgElement = null;
 
-      // Emit to socket
+      // Read values from localStorage
+      const apiKey = localStorage.getItem('agent_api_key') || '';
+      const provider = localStorage.getItem('agent_provider') || 'gemini';
+      const model = localStorage.getItem('agent_model') || 'gemini-2.0-flash';
+
+      // Emit to socket with settings payload
       if (socket && socket.connected) {
-        socket.emit('agent-prompt', text);
+        socket.emit('agent-prompt', { text, apiKey, provider, model });
       } else {
         addChatMessage('Lỗi: Socket chưa kết nối!', 'agent', false, true);
       }

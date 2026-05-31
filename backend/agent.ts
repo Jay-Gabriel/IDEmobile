@@ -80,7 +80,7 @@ const toolDefinitions = [
 ];
 
 // ─── Gemini native runner ─────────────────────────────────────────────────────
-async function runAgentGemini(prompt: string, socket: Socket, workspaceDir: string, apiKey: string) {
+async function runAgentGemini(prompt: string, socket: Socket, workspaceDir: string, apiKey: string, customModel?: string) {
   const { GoogleGenerativeAI } = await import('@google/generative-ai' as any);
   const genAI = new GoogleGenerativeAI(apiKey);
 
@@ -92,10 +92,10 @@ async function runAgentGemini(prompt: string, socket: Socket, workspaceDir: stri
     }))
   }];
 
-  const GEMINI_MODELS = [
+  const GEMINI_MODELS = customModel ? [customModel] : [
+    'gemini-2.0-flash',
     'gemini-1.5-flash-latest',
     'gemini-1.5-flash-8b',
-    'gemini-2.0-flash',
     'gemini-1.5-pro',
   ];
 
@@ -185,7 +185,7 @@ async function runAgentGemini(prompt: string, socket: Socket, workspaceDir: stri
 }
 
 // ─── OpenAI runner ─────────────────────────────────────────────────────────
-async function runAgentOpenAI(prompt: string, socket: Socket, workspaceDir: string, apiKey: string) {
+async function runAgentOpenAI(prompt: string, socket: Socket, workspaceDir: string, apiKey: string, customModel?: string) {
   const OpenAI = (await import('openai')).default;
   const openai = new OpenAI({ apiKey });
 
@@ -201,6 +201,7 @@ async function runAgentOpenAI(prompt: string, socket: Socket, workspaceDir: stri
 
   const maxLoops = 10;
   let currentLoop = 0;
+  const modelToUse = customModel || 'gpt-4o-mini';
 
   while (currentLoop < maxLoops) {
     currentLoop++;
@@ -208,7 +209,7 @@ async function runAgentOpenAI(prompt: string, socket: Socket, workspaceDir: stri
 
     try {
       const response = await openai.chat.completions.create({
-        model: 'gpt-4o-mini',
+        model: modelToUse,
         messages,
         tools: openaiTools,
         tool_choice: 'auto'
@@ -243,21 +244,42 @@ async function runAgentOpenAI(prompt: string, socket: Socket, workspaceDir: stri
 }
 
 // ─── Main export ─────────────────────────────────────────────────────────────
-export async function runAgent(prompt: string, socket: Socket, workspaceDir: string) {
-  const apiKey = process.env.OPENAI_API_KEY;
+export async function runAgent(
+  prompt: string,
+  socket: Socket,
+  workspaceDir: string,
+  options?: { customKey?: string; provider?: string; model?: string }
+) {
+  // Determine API key
+  let apiKey = options?.customKey || '';
+  let provider = options?.provider || '';
+  
   if (!apiKey) {
-    socket.emit('agent-stream', { type: 'error', content: 'Chưa cấu hình API Key trong file .env' });
+    // Fallback to server env
+    apiKey = process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY || '';
+  }
+
+  if (!apiKey) {
+    socket.emit('agent-stream', { 
+      type: 'error', 
+      content: 'Chưa cấu hình API Key. Vui lòng nhấn vào biểu tượng Cài đặt (răng cưa) ở góc trên khung Chat để nhập API Key của bạn (có thể đăng nhập Google lấy Gemini API Key miễn phí).' 
+    });
     socket.emit('agent-stream', { type: 'done' });
     return;
   }
 
+  // Detect provider if not specified
+  if (!provider) {
+    provider = apiKey.startsWith('AIza') ? 'gemini' : 'openai';
+  }
+
   try {
-    if (apiKey.startsWith('AIza')) {
+    if (provider === 'gemini') {
       // Google Gemini key
-      await runAgentGemini(prompt, socket, workspaceDir, apiKey);
+      await runAgentGemini(prompt, socket, workspaceDir, apiKey, options?.model);
     } else {
       // OpenAI key
-      await runAgentOpenAI(prompt, socket, workspaceDir, apiKey);
+      await runAgentOpenAI(prompt, socket, workspaceDir, apiKey, options?.model);
     }
   } catch (err: any) {
     socket.emit('agent-stream', { type: 'error', content: err.message });
