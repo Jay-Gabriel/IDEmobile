@@ -661,15 +661,30 @@
         <div class="terminal-container" id="terminal-panel">
           <div class="terminal-header">
             <div class="terminal-title">
-              <i class="fa-solid fa-terminal"></i> Terminal bash/powershell
+              <i class="fa-solid fa-terminal"></i> Terminal
             </div>
             <div class="terminal-actions">
-              <button class="btn btn-secondary" onclick="pasteToTerminal()" style="padding: 4px 8px; font-size: 11px; display: flex; gap: 4px; align-items: center; border-radius: 4px; border: 1px solid var(--border);" title="Dán vào Terminal">
-                <i class="fa-solid fa-clipboard"></i> Paste
+              <button class="btn btn-secondary" style="padding:3px 8px;font-size:11px;" onclick="showGitCloneDialog()" title="Clone repo từ GitHub">
+                <i class="fa-brands fa-github"></i> Clone
               </button>
             </div>
           </div>
           <div id="xterm-terminal"></div>
+          <!-- Mobile Command Input Bar -->
+          <div class="mobile-cmd-bar" id="mobile-cmd-bar">
+            <input type="text" id="mobile-cmd-input"
+              placeholder="Nhập lệnh hoặc paste vào đây..."
+              autocorrect="off" autocapitalize="none" autocomplete="off" spellcheck="false"
+              style="flex:1;background:rgba(0,0,0,0.5);border:1px solid var(--border);border-radius:6px;padding:8px 12px;color:#f3f4f6;font-size:13px;font-family:'Fira Code',monospace;outline:none;"
+              onkeydown="handleMobileCmdKey(event)"
+            />
+            <button class="btn" style="padding:8px 12px;font-size:13px;" onclick="sendMobileCmd()" title="Gửi lệnh">
+              <i class="fa-solid fa-paper-plane"></i>
+            </button>
+            <button class="btn btn-secondary" style="padding:8px 12px;font-size:13px;" onclick="sendMobileCmdEnter()" title="Enter">
+              &#x21B5;
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -709,6 +724,67 @@
       <button class="btn" onclick="sendAgentMessage()"><i class="fa-solid fa-paper-plane"></i></button>
     </div>
   </div>
+
+  <!-- Git Clone Dialog -->
+  <div id="git-clone-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9999;align-items:center;justify-content:center;">
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:24px;width:min(90vw,420px);display:flex;flex-direction:column;gap:14px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <h3 style="margin:0;font-size:15px;"><i class="fa-brands fa-github"></i> Clone GitHub Repo</h3>
+        <i class="fa-solid fa-xmark" onclick="closeGitCloneDialog()" style="cursor:pointer;padding:4px 8px;"></i>
+      </div>
+      <div style="font-size:12px;color:var(--text-muted);">Nhập URL repo và Personal Access Token (PAT). Token sẽ được nhúng tự động vào URL, không cần gõ lại khi push.</div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <label style="font-size:12px;color:var(--text-muted);">GitHub Repo URL (HTTPS):</label>
+        <input type="url" id="clone-url-input"
+          placeholder="https://github.com/username/repo.git"
+          style="background:var(--bg-input);border:1px solid var(--border);border-radius:6px;padding:8px 12px;color:white;font-size:13px;outline:none;"
+          value="https://github.com/cyberskill-official/ssl-fe-admin.git"
+        />
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <label style="font-size:12px;color:var(--text-muted);">GitHub Username:</label>
+        <input type="text" id="clone-username-input"
+          placeholder="Jay-Gabriel"
+          autocorrect="off" autocapitalize="none"
+          style="background:var(--bg-input);border:1px solid var(--border);border-radius:6px;padding:8px 12px;color:white;font-size:13px;outline:none;"
+        />
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <label style="font-size:12px;color:var(--text-muted);">Personal Access Token (ghp_...):</label>
+        <input type="password" id="clone-token-input"
+          placeholder="ghp_xxxxxxxxxxxx"
+          autocorrect="off" autocapitalize="none" autocomplete="off"
+          style="background:var(--bg-input);border:1px solid var(--border);border-radius:6px;padding:8px 12px;color:white;font-size:13px;outline:none;"
+        />
+        <div style="font-size:11px;color:var(--text-muted);">💡 Mở GitHub trên trình duyệt điện thoại để lấy token rồi copy-paste vào đây</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <label style="font-size:12px;color:var(--text-muted);">Clone vào thư mục (tên folder):</label>
+        <input type="text" id="clone-dir-input"
+          placeholder="ssl-fe-admin"
+          autocorrect="off" autocapitalize="none"
+          style="background:var(--bg-input);border:1px solid var(--border);border-radius:6px;padding:8px 12px;color:white;font-size:13px;outline:none;"
+          value="ssl-fe-admin"
+        />
+      </div>
+      <button class="btn" style="padding:10px;font-size:14px;" onclick="executeGitClone()">
+        <i class="fa-solid fa-code-branch"></i> Clone Repository
+      </button>
+    </div>
+  </div>
+
+  <style>
+    .mobile-cmd-bar {
+      display: flex;
+      gap: 6px;
+      padding: 8px;
+      border-top: 1px solid var(--border);
+      background: var(--bg-panel);
+    }
+    @media (min-width: 769px) {
+      .mobile-cmd-bar { display: none; }
+    }
+  </style>
 
   <script>
     let editor;
@@ -1031,6 +1107,77 @@
       });
     }
 
+    // ─── Mobile Command Bar ───────────────────────────────────
+    function sendMobileCmd() {
+      const input = document.getElementById('mobile-cmd-input');
+      const text = input.value;
+      if (socket && socket.connected && text !== '') {
+        // Send each character then newline
+        socket.emit('terminal-input', text + '\r');
+        input.value = '';
+        input.focus();
+      }
+    }
+
+    function sendMobileCmdEnter() {
+      if (socket && socket.connected) {
+        socket.emit('terminal-input', '\r');
+      }
+      document.getElementById('mobile-cmd-input').focus();
+    }
+
+    function handleMobileCmdKey(event) {
+      if (event.key === 'Enter') {
+        sendMobileCmd();
+      }
+    }
+
+    // ─── Git Clone Dialog ─────────────────────────────────────
+    function showGitCloneDialog() {
+      const overlay = document.getElementById('git-clone-overlay');
+      overlay.style.display = 'flex';
+    }
+
+    function closeGitCloneDialog() {
+      document.getElementById('git-clone-overlay').style.display = 'none';
+    }
+
+    function executeGitClone() {
+      const rawUrl = document.getElementById('clone-url-input').value.trim();
+      const username = document.getElementById('clone-username-input').value.trim();
+      const token = document.getElementById('clone-token-input').value.trim();
+      const dir = document.getElementById('clone-dir-input').value.trim();
+
+      if (!rawUrl) { alert('Vui lòng nhập URL repo!'); return; }
+
+      let cloneUrl = rawUrl;
+      // Inject credentials into HTTPS URL
+      if (username && token && rawUrl.startsWith('https://')) {
+        cloneUrl = rawUrl.replace('https://', `https://${encodeURIComponent(username)}:${encodeURIComponent(token)}@`);
+      }
+
+      // Configure git credential store (so future push also works without re-auth)
+      const setupCmd = username && token
+        ? `git config --global credential.helper store && echo "https://${username}:${token}@github.com" >> ~/.git-credentials`
+        : '';
+
+      const cloneCmd = dir
+        ? `git clone "${cloneUrl}" "${dir}"`
+        : `git clone "${cloneUrl}"`;
+
+      const fullCmd = setupCmd ? `${setupCmd} && ${cloneCmd}` : cloneCmd;
+
+      closeGitCloneDialog();
+
+      // Switch to terminal and run the command
+      switchMobileTab('terminal');
+      setTimeout(() => {
+        if (socket && socket.connected) {
+          socket.emit('terminal-input', fullCmd + '\r');
+        }
+      }, 300);
+    }
+
     // Switch mobile viewport tab
     function switchMobileTab(tab) {
       document.getElementById('sidebar-panel').classList.remove('mobile-active');
@@ -1153,22 +1300,6 @@
         socket.emit('agent-prompt', text);
       } else {
         addChatMessage('Lỗi: Socket chưa kết nối!', 'agent', false, true);
-      }
-    }
-
-    // Paste text helper for mobile browser terminals
-    async function pasteToTerminal() {
-      try {
-        const text = await navigator.clipboard.readText();
-        if (text && socket && socket.connected) {
-          socket.emit('terminal-input', text);
-        }
-      } catch (err) {
-        // Fallback for mobile browser clipboard permissions: show a prompt dialog
-        const text = prompt("Dán văn bản bạn muốn nhập vào Terminal tại đây:");
-        if (text && socket && socket.connected) {
-          socket.emit('terminal-input', text);
-        }
       }
     }
 
