@@ -80,6 +80,38 @@ const toolDefinitions = [
 ];
 
 // ─── Gemini native runner ─────────────────────────────────────────────────────
+// Helper to call sendMessage with automatic 429 quota retry & backoff
+async function sendMessageWithRetry(chatSession: any, message: any, socket: Socket, retries = 5, defaultDelayMs = 6000): Promise<any> {
+  for (let i = 0; i < retries; i++) {
+    try {
+      return await chatSession.sendMessage(message);
+    } catch (error: any) {
+      const errMsg = error.message || String(error);
+      const isRateLimit = errMsg.includes('429') || 
+                          errMsg.includes('quota') || 
+                          errMsg.includes('Quota') || 
+                          errMsg.includes('RESOURCE_EXHAUSTED') || 
+                          errMsg.includes('LimitExceeded');
+      if (isRateLimit && i < retries - 1) {
+        let sleepMs = defaultDelayMs;
+        const retryMatch = errMsg.match(/retry in ([\d\.]+)s/i);
+        if (retryMatch && retryMatch[1]) {
+          sleepMs = (parseFloat(retryMatch[1]) + 1.5) * 1000;
+        }
+        const waitSec = Math.ceil(sleepMs / 1000);
+        socket.emit('agent-stream', { 
+          type: 'status', 
+          content: `⚠️ [429 Hết Quota] Đang tự động đợi ${waitSec} giây rồi thử lại (Lần ${i + 1}/${retries})...` 
+        });
+        await new Promise(resolve => setTimeout(resolve, sleepMs));
+        continue;
+      }
+      throw error;
+    }
+  }
+}
+
+// ─── Gemini native runner ─────────────────────────────────────────────────────
 async function runAgentGemini(prompt: string, socket: Socket, workspaceDir: string, apiKey: string, customModel?: string) {
   const { GoogleGenerativeAI } = await import('@google/generative-ai' as any);
   const genAI = new GoogleGenerativeAI(apiKey);
@@ -119,6 +151,21 @@ async function runAgentGemini(prompt: string, socket: Socket, workspaceDir: stri
       break;
     } catch (e: any) {
       const errMsg = e.message || String(e);
+      const isRateLimit = errMsg.includes('429') || 
+                          errMsg.includes('quota') || 
+                          errMsg.includes('Quota') || 
+                          errMsg.includes('RESOURCE_EXHAUSTED') || 
+                          errMsg.includes('LimitExceeded');
+      if (isRateLimit) {
+        model = genAI.getGenerativeModel({
+          model: modelName,
+          tools,
+          systemInstruction: `Bạn là Antigravity Agent — trợ lý lập trình chuyên nghiệp. Hãy viết code hoàn chỉnh, chạy được. Luôn dùng công cụ để thực hiện thay đổi thực tế trên file.`
+        });
+        usedModel = modelName;
+        socket.emit('agent-stream', { type: 'status', content: `Dùng model: ${modelName} (Hết Quota, sẽ tự đợi khi gọi)` });
+        break;
+      }
       errors.push(`${modelName}: ${errMsg}`);
       console.log(`Model ${modelName} failed: ${errMsg}, trying next...`);
       continue;
@@ -145,7 +192,7 @@ async function runAgentGemini(prompt: string, socket: Socket, workspaceDir: stri
     socket.emit('agent-stream', { type: 'status', content: 'Đang suy nghĩ...' });
 
     try {
-      const result = await chat.sendMessage(currentPrompt);
+      const result = await sendMessageWithRetry(chat, currentPrompt, socket);
       const response = result.response;
       const candidates = response.candidates || [];
       if (!candidates.length) break;
