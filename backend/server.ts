@@ -200,6 +200,35 @@ app.post('/api/create-folder', (req, res) => {
   }
 });
 
+app.post('/api/git-clone', (req, res) => {
+  const { repoUrl, username, token, dir } = req.body;
+  if (!repoUrl) return res.status(400).json({ error: 'repoUrl is required' });
+
+  let cloneUrl = repoUrl;
+  if (username && token && repoUrl.startsWith('https://')) {
+    cloneUrl = repoUrl.replace('https://', `https://${encodeURIComponent(username)}:${encodeURIComponent(token)}@`);
+  }
+
+  const targetDir = dir ? path.resolve(WORKSPACE_DIR, dir) : WORKSPACE_DIR;
+  const args = ['clone', cloneUrl];
+  if (dir) args.push(targetDir);
+
+  const { execSync } = require('child_process');
+  try {
+    const output = execSync(`git clone "${cloneUrl}"${dir ? ` "${targetDir}"` : ''}`, {
+      cwd: WORKSPACE_DIR,
+      encoding: 'utf8',
+      timeout: 120000,
+      stdio: ['pipe', 'pipe', 'pipe']
+    });
+    res.json({ success: true, output: output || 'Clone thành công!', dir: dir || '' });
+  } catch (err: any) {
+    const errMsg = (err.stderr || err.stdout || err.message || 'Unknown error')
+      .replace(new RegExp(token || 'TOKEN_PLACEHOLDER', 'g'), '***');
+    res.json({ success: false, output: errMsg });
+  }
+});
+
 // PTY Emulation & Fallback
 let ptySupported = process.env.USE_NODE_PTY !== 'false';
 let ptyModule: any = null;

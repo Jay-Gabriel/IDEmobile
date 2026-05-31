@@ -641,7 +641,18 @@
           <i class="fa-solid fa-pen" style="font-size: 11px; cursor: pointer; color: var(--text-muted); padding: 4px;" onclick="changeWorkspacePrompt()" title="Đổi thư mục"></i>
         </div>
         <div class="file-tree-container" id="file-tree">
-          <!-- Dinamic items here -->
+          <!-- Dynamic tree here -->
+        </div>
+        <div style="padding: 6px 8px; border-top: 1px solid var(--border); position: relative;">
+          <input type="text" id="file-search-input"
+            placeholder="🔍 Tìm file..."
+            autocorrect="off" autocapitalize="none" autocomplete="off"
+            style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.05);border:1px solid var(--border);border-radius:6px;padding:7px 10px;color:white;font-size:12px;outline:none;"
+            oninput="searchFiles(this.value)"
+            onfocus="showSearchResults()"
+            onblur="setTimeout(hideSearchResults,200)"
+          />
+          <div id="file-search-results" style="display:none;position:absolute;bottom:100%;left:8px;right:8px;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;max-height:220px;overflow-y:auto;z-index:100;box-shadow:0 -4px 16px rgba(0,0,0,0.4);"></div>
         </div>
         <div class="creator-input-container">
           <input type="text" class="creator-input" id="new-item-name" placeholder="Tên file hoặc thư mục/..." />
@@ -814,49 +825,133 @@
       console.log("Monaco Editor loaded successfully.");
     });
 
-    // Load Files List
+    // ─── File Tree State ─────────────────────────────────────
+    let allFilesData = [];
+    let collapsedDirs = new Set();
+
+    // Load Files List (tree view)
     async function loadFilesList() {
       try {
         const response = await fetch(`${serverUrl}/api/files`);
         const data = await response.json();
         if (data.workspace) {
           const pathInput = document.getElementById('workspace-path-input');
-          if (pathInput) {
-            pathInput.value = data.workspace;
-          }
+          if (pathInput) pathInput.value = data.workspace;
         }
-        const container = document.getElementById('file-tree');
-        container.innerHTML = '';
+        allFilesData = data.files || [];
+        renderFileTree(allFilesData);
+      } catch (err) {
+        console.error('Error loading files list:', err);
+      }
+    }
 
-        if (!data.files || data.files.length === 0) {
-          container.innerHTML = '<div style="padding: 16px; font-size:13px; color: var(--text-muted)">Thư mục trống. Hãy tạo file mới ở dưới.</div>';
-          return;
-        }
+    function getFileIcon(name, isDir) {
+      if (isDir) return '<i class="fa-solid fa-chevron-right tree-arrow"></i><i class="fa-solid fa-folder" style="color:#f59e0b"></i>';
+      const ext = name.split('.').pop().toLowerCase();
+      const icons = {
+        js: '<i class="fa-brands fa-js" style="color:#f7df1e"></i>',
+        ts: '<i class="fa-solid fa-code" style="color:#3178c6"></i>',
+        tsx: '<i class="fa-solid fa-code" style="color:#3178c6"></i>',
+        jsx: '<i class="fa-brands fa-react" style="color:#61dafb"></i>',
+        html: '<i class="fa-brands fa-html5" style="color:#e34f26"></i>',
+        css: '<i class="fa-brands fa-css3-alt" style="color:#1572b6"></i>',
+        json: '<i class="fa-solid fa-brackets-curly" style="color:#f59e0b"></i>',
+        md: '<i class="fa-brands fa-markdown" style="color:#aaa"></i>',
+        py: '<i class="fa-brands fa-python" style="color:#3776ab"></i>',
+        sh: '<i class="fa-solid fa-terminal" style="color:#a3e635"></i>',
+        env: '<i class="fa-solid fa-lock" style="color:#f87171"></i>',
+      };
+      return icons[ext] || '<i class="fa-regular fa-file-code" style="color:#94a3b8"></i>';
+    }
 
-        // Separate directories and files
-        const dirs = data.files.filter(f => f.isDirectory).sort((a,b) => a.path.localeCompare(b.path));
-        const files = data.files.filter(f => !f.isDirectory).sort((a,b) => a.path.localeCompare(b.path));
+    function renderFileTree(files) {
+      const container = document.getElementById('file-tree');
+      container.innerHTML = '';
+      if (!files || files.length === 0) {
+        container.innerHTML = '<div style="padding:16px;font-size:13px;color:var(--text-muted)">Thư mục trống.</div>';
+        return;
+      }
 
-        const sortedItems = [...dirs, ...files];
+      // Build tree structure
+      const tree = {};
+      files.forEach(f => {
+        const parts = f.path.split('/');
+        let node = tree;
+        parts.forEach((part, i) => {
+          if (!node[part]) node[part] = { _isDir: i < parts.length - 1 || f.isDirectory, _path: parts.slice(0, i+1).join('/'), _children: {} };
+          node = node[part]._children;
+        });
+      });
 
-        sortedItems.forEach(item => {
+      function renderNode(nodeMap, depth) {
+        const entries = Object.entries(nodeMap).sort(([an, av], [bn, bv]) => {
+          if (av._isDir !== bv._isDir) return av._isDir ? -1 : 1;
+          return an.localeCompare(bn);
+        });
+        entries.forEach(([name, node]) => {
           const div = document.createElement('div');
-          div.className = `file-item ${item.isDirectory ? 'directory' : 'file'}`;
-          if (item.path === activeFilePath) {
-            div.classList.add('active');
-          }
+          div.style.paddingLeft = `${depth * 14 + 8}px`;
+          div.className = 'file-item ' + (node._isDir ? 'directory' : 'file');
+          if (node._path === activeFilePath) div.classList.add('active');
 
-          const icon = item.isDirectory ? '<i class="fa-solid fa-folder"></i>' : '<i class="fa-regular fa-file"></i>';
-          div.innerHTML = `${icon}<span>${item.path}</span>`;
-          
-          if (!item.isDirectory) {
-            div.onclick = () => selectFile(item.path);
+          const isCollapsed = collapsedDirs.has(node._path);
+          div.innerHTML = `<span class="tree-arrow-wrap" style="margin-right:4px;display:inline-flex;align-items:center;width:14px;">${node._isDir ? `<i class="fa-solid ${isCollapsed ? 'fa-chevron-right' : 'fa-chevron-down'}" style="font-size:10px;color:var(--text-muted);"></i>` : ''}</span>${getFileIcon(name, node._isDir)}<span style="margin-left:6px;">${name}</span>`;
+
+          if (node._isDir) {
+            div.onclick = () => {
+              if (collapsedDirs.has(node._path)) collapsedDirs.delete(node._path);
+              else collapsedDirs.add(node._path);
+              renderFileTree(allFilesData);
+            };
+          } else {
+            div.onclick = () => selectFile(node._path);
           }
           container.appendChild(div);
+
+          if (node._isDir && !isCollapsed && Object.keys(node._children).length > 0) {
+            renderNode(node._children, depth + 1);
+          }
         });
-      } catch (err) {
-        console.error("Error loading files list:", err);
       }
+      renderNode(tree, 0);
+    }
+
+    // ─── File Search ──────────────────────────────────────────
+    function searchFiles(query) {
+      const resultsBox = document.getElementById('file-search-results');
+      if (!query || query.trim() === '') {
+        resultsBox.style.display = 'none';
+        renderFileTree(allFilesData);
+        return;
+      }
+      const q = query.toLowerCase();
+      const matches = allFilesData.filter(f => !f.isDirectory && f.path.toLowerCase().includes(q));
+      renderFileTree(matches.length ? matches : allFilesData);
+
+      // Show suggestions dropdown
+      resultsBox.innerHTML = '';
+      if (matches.length === 0) {
+        resultsBox.innerHTML = '<div style="padding:10px;color:var(--text-muted);font-size:12px;">Không tìm thấy file nào</div>';
+      } else {
+        matches.slice(0, 12).forEach(f => {
+          const item = document.createElement('div');
+          item.style.cssText = 'padding:8px 12px;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:8px;border-bottom:1px solid rgba(255,255,255,0.05);';
+          item.onmouseenter = () => item.style.background = 'rgba(99,102,241,0.15)';
+          item.onmouseleave = () => item.style.background = '';
+          const highlighted = f.path.replace(new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), m => `<mark style="background:rgba(99,102,241,0.5);color:white;border-radius:2px;">${m}</mark>`);
+          item.innerHTML = `${getFileIcon(f.name, false)}<span>${highlighted}</span>`;
+          item.onmousedown = () => { selectFile(f.path); hideSearchResults(); document.getElementById('file-search-input').value = ''; renderFileTree(allFilesData); };
+          resultsBox.appendChild(item);
+        });
+      }
+      resultsBox.style.display = 'block';
+    }
+    function showSearchResults() {
+      const v = document.getElementById('file-search-input').value;
+      if (v) searchFiles(v);
+    }
+    function hideSearchResults() {
+      document.getElementById('file-search-results').style.display = 'none';
     }
 
     // Change dynamic workspace folder
