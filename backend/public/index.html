@@ -5,6 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Antigravity Mobile Editor & Terminal</title>
   
+  <!-- PWA Meta & Manifest -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Antigravity" />
+  <link rel="apple-touch-icon" href="/icon.svg" />
+  <link rel="manifest" href="/manifest.json" />
+  
   <!-- CSS imports -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/xterm.css" />
@@ -1556,6 +1563,7 @@
           input.value = '';
         }
       }
+      input.focus(); // Keep input focused and cursor blinking
     }
 
     function sendMobileCmd() {
@@ -1657,6 +1665,7 @@
         document.getElementById('tab-btn-terminal').classList.add('active');
         setTimeout(() => {
           if (fitAddon) fitAddon.fit();
+          document.getElementById('mobile-cmd-input').focus(); // Auto focus on switch
         }, 100);
       }
     }
@@ -1766,6 +1775,13 @@
       initTerminal();
       loadGitInfo();
       setInterval(loadGitInfo, 15000);
+
+      // Register Service Worker for PWA (Installable App)
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/sw.js')
+          .then(reg => console.log('Service Worker Registered!', reg))
+          .catch(err => console.log('Service Worker Registration Failed!', err));
+      }
 
       // On resize check layout
       window.addEventListener('resize', () => {
