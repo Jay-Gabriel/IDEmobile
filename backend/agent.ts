@@ -269,9 +269,9 @@ export async function runAgent(
     return;
   }
 
-  // Detect provider if not specified
+  // Detect provider if not specified (OpenAI keys start with sk-)
   if (!provider) {
-    provider = apiKey.startsWith('AIza') ? 'gemini' : 'openai';
+    provider = apiKey.startsWith('sk-') ? 'openai' : 'gemini';
   }
 
   try {
