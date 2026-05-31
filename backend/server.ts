@@ -229,18 +229,33 @@ app.post('/api/git-clone', (req, res) => {
   }
 });
 
-// Git info: branch + log
+// Git info: branch + tracking + changedFiles + log
 app.get('/api/git/info', (req, res) => {
   const { execSync } = require('child_process');
   try {
     let branch = 'unknown';
+    let tracking = 'none';
     let commits: any[] = [];
     let remoteUrl = '';
+    let changedFiles: any[] = [];
     try {
       branch = execSync('git rev-parse --abbrev-ref HEAD', { cwd: WORKSPACE_DIR, encoding: 'utf8', timeout: 5000 }).trim();
     } catch {}
     try {
+      tracking = execSync('git rev-parse --abbrev-ref --symbolic-full-name @{u}', { cwd: WORKSPACE_DIR, encoding: 'utf8', timeout: 5000 }).trim();
+    } catch {
+      tracking = branch !== 'unknown' ? `origin/${branch}` : 'none';
+    }
+    try {
       remoteUrl = execSync('git remote get-url origin', { cwd: WORKSPACE_DIR, encoding: 'utf8', timeout: 5000 }).trim();
+    } catch {}
+    try {
+      const statusRaw = execSync('git status --porcelain', { cwd: WORKSPACE_DIR, encoding: 'utf8', timeout: 5000 }).trim();
+      changedFiles = statusRaw.split('\n').filter(Boolean).map((line: string) => {
+        const status = line.substring(0, 2).trim();
+        const path = line.substring(3).trim();
+        return { status, path };
+      });
     } catch {}
     try {
       const logRaw = execSync(
@@ -252,9 +267,30 @@ app.get('/api/git/info', (req, res) => {
         return { hash: hash?.substring(0, 7), author, email, date, message: msgParts.join('|') };
       });
     } catch {}
-    res.json({ branch, commits, remoteUrl });
+    res.json({ branch, tracking, remoteUrl, changedFiles, commits });
   } catch (err: any) {
-    res.json({ branch: 'unknown', commits: [], error: err.message });
+    res.json({ branch: 'unknown', tracking: 'none', commits: [], changedFiles: [], error: err.message });
+  }
+});
+
+// Git commit & push helper
+app.post('/api/git/commit-push', (req, res) => {
+  const { message } = req.body;
+  if (!message || !message.trim()) {
+    return res.status(400).json({ error: 'Commit message is required' });
+  }
+  const { execSync } = require('child_process');
+  try {
+    // Add all changes
+    execSync('git add .', { cwd: WORKSPACE_DIR, timeout: 15000 });
+    // Commit
+    const commitOut = execSync(`git commit -m "${message.replace(/"/g, '\\"')}"`, { cwd: WORKSPACE_DIR, encoding: 'utf8', timeout: 15000 });
+    // Push
+    const pushOut = execSync('git push', { cwd: WORKSPACE_DIR, encoding: 'utf8', timeout: 45000 });
+    res.json({ success: true, commit: commitOut, push: pushOut });
+  } catch (err: any) {
+    const errMsg = (err.stderr || err.stdout || err.message || 'Unknown error');
+    res.json({ success: false, error: errMsg });
   }
 });
 

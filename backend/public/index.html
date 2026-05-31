@@ -176,6 +176,7 @@
       flex: 1;
       overflow-y: auto;
       padding: 10px 0;
+      min-height: 0;
     }
 
     .file-item {
@@ -644,48 +645,77 @@
           <button id="stab-git" onclick="switchSidebarTab('git')" style="flex:1;padding:8px;font-size:12px;background:transparent;border:none;color:var(--text-muted);cursor:pointer;border-bottom:2px solid transparent;"><i class="fa-brands fa-git-alt"></i> Git</button>
         </div>
         <!-- Files Panel -->
-        <div id="sidebar-files-panel">
-        <div class="sidebar-header" style="border-top:none;">
-          <span>Thư mục dự án</span>
-          <div class="sidebar-actions">
-            <i class="fa-solid fa-arrows-rotate" onclick="loadFilesList()" title="Refresh"></i>
+        <div id="sidebar-files-panel" style="display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden;">
+          <div class="sidebar-header" style="border-top:none;flex-shrink:0;">
+            <span>Thư mục dự án</span>
+            <div class="sidebar-actions">
+              <i class="fa-solid fa-arrows-rotate" onclick="loadFilesList()" title="Refresh"></i>
+            </div>
           </div>
-        </div>
-        <div class="workspace-path-bar" style="padding: 8px 12px; border-bottom: 1px solid var(--border); display: flex; gap: 8px; align-items: center; background: rgba(255,255,255,0.02);">
-          <i class="fa-regular fa-folder-open" style="color: var(--primary); font-size: 13px;"></i>
-          <input type="text" id="workspace-path-input" style="flex: 1; background: transparent; border: none; color: var(--text-muted); font-size: 11px; font-family: monospace; outline: none; text-overflow: ellipsis; white-space: nowrap; overflow: hidden;" readonly onclick="changeWorkspacePrompt()" />
-          <i class="fa-solid fa-pen" style="font-size: 11px; cursor: pointer; color: var(--text-muted); padding: 4px;" onclick="changeWorkspacePrompt()" title="Đổi thư mục"></i>
-        </div>
-        <div class="file-tree-container" id="file-tree">
-          <!-- Dynamic tree here -->
-        </div>
-        <div style="padding: 6px 8px; border-top: 1px solid var(--border); position: relative;">
-          <input type="text" id="file-search-input"
-            placeholder="🔍 Tìm file..."
-            autocorrect="off" autocapitalize="none" autocomplete="off"
-            style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.05);border:1px solid var(--border);border-radius:6px;padding:7px 10px;color:white;font-size:12px;outline:none;"
-            oninput="searchFiles(this.value)"
-            onfocus="showSearchResults()"
-            onblur="setTimeout(hideSearchResults,200)"
-          />
-          <div id="file-search-results" style="display:none;position:absolute;bottom:100%;left:8px;right:8px;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;max-height:220px;overflow-y:auto;z-index:100;box-shadow:0 -4px 16px rgba(0,0,0,0.4);"></div>
-        </div>
-        <div class="creator-input-container">
-          <input type="text" class="creator-input" id="new-item-name" placeholder="Tên file hoặc thư mục/..." />
-          <button class="btn btn-secondary" onclick="createItem(false)" title="Tạo File"><i class="fa-solid fa-file-plus"></i></button>
-          <button class="btn btn-secondary" onclick="createItem(true)" title="Tạo Folder"><i class="fa-solid fa-folder-plus"></i></button>
-        </div>
+          <div class="workspace-path-bar" style="padding:6px 12px;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center;background:rgba(255,255,255,0.02);flex-shrink:0;">
+            <i class="fa-regular fa-folder-open" style="color:var(--primary);font-size:12px;"></i>
+            <input type="text" id="workspace-path-input" style="flex:1;background:transparent;border:none;color:var(--text-muted);font-size:10px;font-family:monospace;outline:none;text-overflow:ellipsis;white-space:nowrap;overflow:hidden;" readonly onclick="changeWorkspacePrompt()" />
+            <i class="fa-solid fa-pen" style="font-size:11px;cursor:pointer;color:var(--text-muted);padding:4px;" onclick="changeWorkspacePrompt()" title="Đổi thư mục"></i>
+          </div>
+          <!-- Search bar - always visible above file tree -->
+          <div style="padding:6px 8px;border-bottom:1px solid var(--border);position:relative;flex-shrink:0;">
+            <input type="text" id="file-search-input"
+              placeholder="🔍 Tìm file..."
+              autocorrect="off" autocapitalize="none" autocomplete="off"
+              style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.05);border:1px solid var(--border);border-radius:6px;padding:6px 10px;color:white;font-size:12px;outline:none;"
+              oninput="searchFiles(this.value)"
+              onfocus="showSearchResults()"
+              onblur="setTimeout(hideSearchResults,200)"
+            />
+            <div id="file-search-results" style="display:none;position:absolute;top:100%;left:8px;right:8px;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;max-height:220px;overflow-y:auto;z-index:200;box-shadow:0 4px 16px rgba(0,0,0,0.5);"></div>
+          </div>
+          <div class="file-tree-container" id="file-tree" style="flex:1;min-height:0;overflow-y:auto;">
+            <!-- Dynamic tree here -->
+          </div>
+          <div class="creator-input-container" style="flex-shrink:0;">
+            <input type="text" class="creator-input" id="new-item-name" placeholder="Tên file hoặc thư mục/..." />
+            <button class="btn btn-secondary" onclick="createItem(false)" title="Tạo File"><i class="fa-solid fa-file-plus"></i></button>
+            <button class="btn btn-secondary" onclick="createItem(true)" title="Tạo Folder"><i class="fa-solid fa-folder-plus"></i></button>
+          </div>
         </div><!-- /sidebar-files-panel -->
         <!-- Git Panel -->
-        <div id="sidebar-git-panel" style="display:none;overflow-y:auto;flex:1;">
-          <div style="padding:12px;">
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
-              <i class="fa-solid fa-code-branch" style="color:var(--primary);"></i>
-              <span style="font-size:13px;font-weight:600;">Nhánh hiện tại:</span>
-              <span id="git-branch-display" style="background:rgba(99,102,241,0.2);border:1px solid rgba(99,102,241,0.4);border-radius:12px;padding:2px 10px;font-size:12px;color:#a5b4fc;">...</span>
+        <div id="sidebar-git-panel" style="display:none;overflow-y:auto;flex:1;flex-direction:column;">
+          <div style="padding:12px;display:flex;flex-direction:column;gap:12px;flex:1;min-height:0;">
+            <!-- Branch details -->
+            <div style="background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:8px;padding:10px;display:flex;flex-direction:column;gap:6px;flex-shrink:0;">
+              <div style="display:flex;align-items:center;gap:8px;">
+                <i class="fa-solid fa-code-branch" style="color:var(--primary);font-size:13px;"></i>
+                <span style="font-size:12px;font-weight:600;color:var(--text-main);">Nhánh:</span>
+                <span id="git-branch-display" style="background:rgba(99,102,241,0.2);border:1px solid rgba(99,102,241,0.4);border-radius:12px;padding:2px 8px;font-size:11px;color:#a5b4fc;font-weight:bold;">...</span>
+              </div>
+              <div style="font-size:11px;color:var(--text-muted);display:flex;align-items:center;gap:6px;word-break:break-all;">
+                <i class="fa-solid fa-cloud-arrow-up" style="font-size:10px;color:var(--accent);"></i>
+                <span>Push: <strong id="git-tracking-display" style="color:var(--text-main);font-family:monospace;">...</strong></span>
+              </div>
             </div>
-            <div style="font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px;">Lịch sử commit</div>
-            <div id="git-commit-list"><div style="color:var(--text-muted);font-size:12px;padding:8px;">Đang tải...</div></div>
+
+            <!-- Changes Section -->
+            <div style="display:flex;flex-direction:column;max-height:220px;flex-shrink:0;">
+              <div style="font-size:11px;font-weight:600;color:var(--text-muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;display:flex;justify-content:space-between;align-items:center;">
+                <span>File thay đổi</span>
+                <span id="git-changes-badge" style="background:var(--primary);color:white;font-size:10px;padding:1px 6px;border-radius:10px;font-weight:bold;">0</span>
+              </div>
+              <div id="git-changes-list" style="overflow-y:auto;border:1px solid var(--border);background:rgba(0,0,0,0.15);border-radius:6px;max-height:180px;padding:6px;font-size:11px;display:flex;flex-direction:column;gap:4px;">
+                <div style="color:var(--text-muted);padding:8px;text-align:center;">Không có thay đổi.</div>
+              </div>
+            </div>
+
+            <!-- Commit & Push UI -->
+            <div style="background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:8px;padding:10px;display:flex;flex-direction:column;gap:8px;flex-shrink:0;">
+              <input type="text" id="git-commit-msg" placeholder="Nhập message commit..." style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.05);border:1px solid var(--border);border-radius:6px;padding:7px 10px;color:white;font-size:11px;outline:none;" />
+              <button class="btn" onclick="commitAndPushFromUI()" style="width:100%;justify-content:center;font-size:11px;padding:7px 12px;height:32px;"><i class="fa-solid fa-cloud-arrow-up"></i> Commit & Push</button>
+            </div>
+
+            <!-- Commit logs -->
+            <div style="display:flex;flex-direction:column;flex:1;min-height:0;overflow-y:auto;">
+              <div style="font-size:11px;font-weight:600;color:var(--text-muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;flex-shrink:0;">Lịch sử commit</div>
+              <div id="git-commit-list" style="overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:2px;"><div style="color:var(--text-muted);font-size:11px;padding:8px;">Đang tải...</div></div>
+            </div>
           </div>
         </div>
       </div>
@@ -1127,41 +1157,112 @@
     }
 
     // ─── Git Info ─────────────────────────────────────────────
+    // ─── Git Info & Operations ──────────────────────────────────
     async function loadGitInfo() {
       try {
         const res = await fetch(`${serverUrl}/api/git/info`);
         const data = await res.json();
 
-        // Update branch badge in header
+        // Update branch badges
         const badge = document.getElementById('git-branch-badge');
         const branchName = document.getElementById('git-branch-name');
         const branchDisplay = document.getElementById('git-branch-display');
+        const trackingDisplay = document.getElementById('git-tracking-display');
+
         if (data.branch && data.branch !== 'unknown') {
-          if (badge) { badge.style.display = 'inline-flex'; }
+          if (badge) badge.style.display = 'inline-flex';
           if (branchName) branchName.textContent = data.branch;
           if (branchDisplay) branchDisplay.textContent = data.branch;
+          if (trackingDisplay) trackingDisplay.textContent = data.tracking || `origin/${data.branch}`;
+        } else {
+          if (badge) badge.style.display = 'none';
+          if (branchDisplay) branchDisplay.textContent = 'None';
+          if (trackingDisplay) trackingDisplay.textContent = 'None';
+        }
+
+        // Render changed files list
+        const changesList = document.getElementById('git-changes-list');
+        const changesBadge = document.getElementById('git-changes-badge');
+        if (changesList) {
+          if (data.changedFiles && data.changedFiles.length > 0) {
+            if (changesBadge) {
+              changesBadge.textContent = data.changedFiles.length;
+              changesBadge.style.display = 'inline-block';
+            }
+            changesList.innerHTML = data.changedFiles.map(f => {
+              let color = '#f59e0b'; // Modified (M)
+              let label = 'M';
+              if (f.status === '??') { color = '#10b981'; label = 'U'; } // Untracked
+              else if (f.status === 'A') { color = '#10b981'; label = 'A'; } // Added
+              else if (f.status === 'D') { color = '#ef4444'; label = 'D'; } // Deleted
+              else if (f.status === 'R') { color = '#a78bfa'; label = 'R'; } // Renamed
+
+              return `<div style="display:flex;align-items:center;gap:8px;padding:3px 0;">
+                <span style="color:${color};font-weight:bold;font-family:monospace;width:14px;text-align:center;font-size:10px;background:rgba(255,255,255,0.05);border-radius:3px;padding:1px 3px;">${label}</span>
+                <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;color:var(--text-main);" title="${f.path}">${f.path}</span>
+              </div>`;
+            }).join('');
+          } else {
+            if (changesBadge) changesBadge.style.display = 'none';
+            changesList.innerHTML = '<div style="color:var(--text-muted);padding:8px;text-align:center;">Không có thay đổi.</div>';
+          }
         }
 
         // Render commit list
         const list = document.getElementById('git-commit-list');
         if (!list) return;
         if (!data.commits || data.commits.length === 0) {
-          list.innerHTML = '<div style="color:var(--text-muted);font-size:12px;padding:8px;">Không có commit nào.</div>';
+          list.innerHTML = '<div style="color:var(--text-muted);font-size:11px;padding:8px;text-align:center;">Không có commit nào.</div>';
           return;
         }
         list.innerHTML = data.commits.map(c => {
           const initials = (c.author || '?').split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase();
           const hue = [...(c.author||'')].reduce((a, ch) => a + ch.charCodeAt(0), 0) % 360;
-          return `<div style="display:flex;gap:10px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.05);align-items:flex-start;">
-            <div style="width:28px;height:28px;border-radius:50%;background:hsl(${hue},60%,40%);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:white;flex-shrink:0;">${initials}</div>
+          return `<div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.05);align-items:flex-start;">
+            <div style="width:24px;height:24px;border-radius:50%;background:hsl(${hue},60%,40%);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:white;flex-shrink:0;">${initials}</div>
             <div style="min-width:0;flex:1;">
-              <div style="font-size:12px;font-weight:600;color:white;margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${c.message}">${c.message}</div>
-              <div style="font-size:11px;color:var(--text-muted);">${c.author} &bull; <code style="color:#a5b4fc;">${c.hash}</code> &bull; ${c.date}</div>
+              <div style="font-size:11px;font-weight:600;color:white;margin-bottom:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${c.message}">${c.message}</div>
+              <div style="font-size:10px;color:var(--text-muted);">${c.author} &bull; <code style="color:#a5b4fc;">${c.hash}</code> &bull; ${c.date}</div>
             </div>
           </div>`;
         }).join('');
       } catch (err) {
         console.error('Git info error:', err);
+      }
+    }
+
+    async function commitAndPushFromUI() {
+      const msgInput = document.getElementById('git-commit-msg');
+      const message = msgInput.value.trim();
+      if (!message) {
+        alert('Vui lòng nhập nội dung commit message!');
+        return;
+      }
+      const btn = document.querySelector('button[onclick="commitAndPushFromUI()"]');
+      const originalHtml = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Đang push...';
+
+      try {
+        const response = await fetch(`${serverUrl}/api/git/commit-push`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message })
+        });
+        const data = await response.json();
+        if (data.success) {
+          alert('Đã Commit & Push lên GitHub thành công! 🎉');
+          msgInput.value = '';
+          loadGitInfo();
+          loadFilesList();
+        } else {
+          alert(`Lỗi Git: ${data.error}`);
+        }
+      } catch (err) {
+        alert(`Lỗi kết nối server: ${err.message}`);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalHtml;
       }
     }
 
@@ -1540,6 +1641,8 @@
     window.onload = () => {
       loadFilesList();
       initTerminal();
+      loadGitInfo();
+      setInterval(loadGitInfo, 15000);
 
       // On resize check layout
       window.addEventListener('resize', () => {
