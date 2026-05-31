@@ -21,14 +21,10 @@ const io = new Server(server, {
 
 app.use(cors());
 app.use(express.json());
-const publicPath = fs.existsSync(path.join(__dirname, 'public'))
-  ? path.join(__dirname, 'public')
-  : path.join(__dirname, '../public');
+const publicPath = path.resolve(process.cwd(), 'public');
 app.use(express.static(publicPath));
 
-const WORKSPACE_DIR = fs.existsSync(path.join(__dirname, 'workspace'))
-  ? path.resolve(__dirname, 'workspace')
-  : path.resolve(__dirname, '../workspace');
+const WORKSPACE_DIR = path.resolve(process.cwd(), 'workspace');
 if (!fs.existsSync(WORKSPACE_DIR)) {
   fs.mkdirSync(WORKSPACE_DIR, { recursive: true });
 }
