@@ -617,8 +617,17 @@
         <i class="fa-solid fa-feather-pointed"></i>
         <span>ANTIGRAVITY</span>
       </div>
-      <div class="active-file-info" id="active-file-display">Không có file nào đang mở</div>
+      <div style="display:flex;align-items:center;gap:6px;flex:1;min-width:0;">
+        <div class="active-file-info" id="active-file-display" style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Không có file nào đang mở</div>
+        <span id="git-branch-badge" style="display:none;background:rgba(99,102,241,0.2);border:1px solid rgba(99,102,241,0.4);border-radius:20px;padding:2px 8px;font-size:10px;color:#a5b4fc;white-space:nowrap;flex-shrink:0;"><i class="fa-solid fa-code-branch" style="margin-right:3px;"></i><span id="git-branch-name">main</span></span>
+      </div>
       <div class="header-actions">
+        <button class="btn btn-secondary" id="undo-btn" onclick="editorUndo()" title="Hoàn tác (Ctrl+Z)" style="padding:6px 10px;">
+          <i class="fa-solid fa-rotate-left"></i>
+        </button>
+        <button class="btn btn-secondary" id="redo-btn" onclick="editorRedo()" title="Làm lại (Ctrl+Y)" style="padding:6px 10px;">
+          <i class="fa-solid fa-rotate-right"></i>
+        </button>
         <button class="btn" id="save-btn" onclick="saveActiveFile()">
           <i class="fa-solid fa-floppy-disk"></i> Lưu
         </button>
@@ -629,7 +638,14 @@
     <div class="main-area">
       <!-- Sidebar / File list (Starts active on mobile) -->
       <div class="sidebar mobile-active" id="sidebar-panel">
-        <div class="sidebar-header">
+        <!-- Sidebar Tabs: Files | Git -->
+        <div style="display:flex;border-bottom:1px solid var(--border);">
+          <button id="stab-files" onclick="switchSidebarTab('files')" style="flex:1;padding:8px;font-size:12px;background:rgba(99,102,241,0.15);border:none;color:white;cursor:pointer;border-bottom:2px solid var(--primary);"><i class="fa-regular fa-folder-open"></i> Files</button>
+          <button id="stab-git" onclick="switchSidebarTab('git')" style="flex:1;padding:8px;font-size:12px;background:transparent;border:none;color:var(--text-muted);cursor:pointer;border-bottom:2px solid transparent;"><i class="fa-brands fa-git-alt"></i> Git</button>
+        </div>
+        <!-- Files Panel -->
+        <div id="sidebar-files-panel">
+        <div class="sidebar-header" style="border-top:none;">
           <span>Thư mục dự án</span>
           <div class="sidebar-actions">
             <i class="fa-solid fa-arrows-rotate" onclick="loadFilesList()" title="Refresh"></i>
@@ -659,13 +675,28 @@
           <button class="btn btn-secondary" onclick="createItem(false)" title="Tạo File"><i class="fa-solid fa-file-plus"></i></button>
           <button class="btn btn-secondary" onclick="createItem(true)" title="Tạo Folder"><i class="fa-solid fa-folder-plus"></i></button>
         </div>
+        </div><!-- /sidebar-files-panel -->
+        <!-- Git Panel -->
+        <div id="sidebar-git-panel" style="display:none;overflow-y:auto;flex:1;">
+          <div style="padding:12px;">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+              <i class="fa-solid fa-code-branch" style="color:var(--primary);"></i>
+              <span style="font-size:13px;font-weight:600;">Nhánh hiện tại:</span>
+              <span id="git-branch-display" style="background:rgba(99,102,241,0.2);border:1px solid rgba(99,102,241,0.4);border-radius:12px;padding:2px 10px;font-size:12px;color:#a5b4fc;">...</span>
+            </div>
+            <div style="font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px;">Lịch sử commit</div>
+            <div id="git-commit-list"><div style="color:var(--text-muted);font-size:12px;padding:8px;">Đang tải...</div></div>
+          </div>
+        </div>
       </div>
 
       <!-- Viewports -->
       <div class="workspace-viewports">
         <!-- Monaco Editor -->
         <div class="editor-container" id="editor-panel">
-          <div id="monaco-editor"></div>
+          <!-- File Tabs -->
+          <div id="file-tabs-bar" style="display:flex;overflow-x:auto;background:var(--bg-panel);border-bottom:1px solid var(--border);scrollbar-width:none;flex-shrink:0;"></div>
+          <div id="monaco-editor" style="flex:1;"></div>
         </div>
 
         <!-- Xterm Terminal -->
@@ -804,6 +835,11 @@
     let term;
     let fitAddon;
     let serverUrl = window.location.origin;
+    let openTabs = []; // { path, name }
+
+    // ─── Editor Actions ───────────────────────────────────────
+    function editorUndo() { if (editor) editor.trigger('keyboard', 'undo', null); }
+    function editorRedo() { if (editor) editor.trigger('keyboard', 'redo', null); }
 
     // Load Monaco Editor
     require.config({ paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.39.0/min/vs' } });
@@ -991,7 +1027,14 @@
         }
 
         activeFilePath = filePath;
-        document.getElementById('active-file-display').textContent = filePath;
+        const name = filePath.split('/').pop();
+        document.getElementById('active-file-display').textContent = name;
+
+        // Add to open tabs
+        if (!openTabs.find(t => t.path === filePath)) {
+          openTabs.push({ path: filePath, name });
+        }
+        renderFileTabs();
 
         // Detect language based on extension
         let ext = filePath.split('.').pop().toLowerCase();
@@ -999,10 +1042,11 @@
         if (ext === 'html' || ext === 'htm') lang = 'html';
         else if (ext === 'css') lang = 'css';
         else if (ext === 'json') lang = 'json';
-        else if (ext === 'ts') lang = 'typescript';
-        else if (ext === 'tsx') lang = 'typescript';
+        else if (ext === 'ts' || ext === 'tsx') lang = 'typescript';
         else if (ext === 'md') lang = 'markdown';
         else if (ext === 'py') lang = 'python';
+        else if (ext === 'sh' || ext === 'bash') lang = 'shell';
+        else if (ext === 'vue') lang = 'html';
 
         // Set value and language model
         editor.setValue(data.content);
@@ -1010,7 +1054,8 @@
 
         // Highlight active item
         document.querySelectorAll('.file-item').forEach(el => {
-          if (el.querySelector('span').textContent === filePath) {
+          const span = el.querySelector('span');
+          if (span && span.textContent === filePath.split('/').pop() && el.dataset && el.dataset.path === filePath) {
             el.classList.add('active');
           } else {
             el.classList.remove('active');
@@ -1018,12 +1063,105 @@
         });
 
         // Switch to editor tab on mobile
-        if (window.innerWidth <= 768) {
-          switchMobileTab('editor');
-        }
+        if (window.innerWidth <= 768) switchMobileTab('editor');
 
       } catch (err) {
-        console.error("Error selecting file:", err);
+        console.error('Error selecting file:', err);
+      }
+    }
+
+    // ─── File Tabs ────────────────────────────────────────────
+    function renderFileTabs() {
+      const bar = document.getElementById('file-tabs-bar');
+      bar.innerHTML = '';
+      openTabs.forEach(tab => {
+        const t = document.createElement('div');
+        const isActive = tab.path === activeFilePath;
+        t.style.cssText = `display:flex;align-items:center;gap:6px;padding:6px 12px;font-size:12px;cursor:pointer;white-space:nowrap;border-right:1px solid var(--border);user-select:none;flex-shrink:0;border-bottom:2px solid ${isActive ? 'var(--primary)' : 'transparent'};background:${isActive ? 'rgba(99,102,241,0.1)' : 'transparent'};color:${isActive ? 'white' : 'var(--text-muted)'};`;
+        t.innerHTML = `<span onclick="selectFile('${tab.path}')">${tab.name}</span><span onclick="closeTab('${tab.path}')" style="opacity:0.5;padding:0 2px;font-size:14px;line-height:1;" onmouseenter="this.style.opacity='1'" onmouseleave="this.style.opacity='0.5'">&#xd7;</span>`;
+        bar.appendChild(t);
+      });
+    }
+
+    function closeTab(filePath) {
+      openTabs = openTabs.filter(t => t.path !== filePath);
+      if (activeFilePath === filePath) {
+        if (openTabs.length > 0) {
+          selectFile(openTabs[openTabs.length - 1].path);
+        } else {
+          activeFilePath = null;
+          document.getElementById('active-file-display').textContent = 'Không có file nào đang mở';
+          if (editor) editor.setValue('// Chọn một file từ thanh bên để bắt đầu chỉnh sửa');
+        }
+      }
+      renderFileTabs();
+    }
+
+    // ─── Sidebar Tabs ─────────────────────────────────────────
+    function switchSidebarTab(tab) {
+      const filesPanel = document.getElementById('sidebar-files-panel');
+      const gitPanel = document.getElementById('sidebar-git-panel');
+      const tabFiles = document.getElementById('stab-files');
+      const tabGit = document.getElementById('stab-git');
+      if (tab === 'files') {
+        filesPanel.style.display = '';
+        gitPanel.style.display = 'none';
+        tabFiles.style.background = 'rgba(99,102,241,0.15)';
+        tabFiles.style.color = 'white';
+        tabFiles.style.borderBottom = '2px solid var(--primary)';
+        tabGit.style.background = 'transparent';
+        tabGit.style.color = 'var(--text-muted)';
+        tabGit.style.borderBottom = '2px solid transparent';
+      } else {
+        filesPanel.style.display = 'none';
+        gitPanel.style.display = 'flex';
+        gitPanel.style.flexDirection = 'column';
+        tabGit.style.background = 'rgba(99,102,241,0.15)';
+        tabGit.style.color = 'white';
+        tabGit.style.borderBottom = '2px solid var(--primary)';
+        tabFiles.style.background = 'transparent';
+        tabFiles.style.color = 'var(--text-muted)';
+        tabFiles.style.borderBottom = '2px solid transparent';
+        loadGitInfo();
+      }
+    }
+
+    // ─── Git Info ─────────────────────────────────────────────
+    async function loadGitInfo() {
+      try {
+        const res = await fetch(`${serverUrl}/api/git/info`);
+        const data = await res.json();
+
+        // Update branch badge in header
+        const badge = document.getElementById('git-branch-badge');
+        const branchName = document.getElementById('git-branch-name');
+        const branchDisplay = document.getElementById('git-branch-display');
+        if (data.branch && data.branch !== 'unknown') {
+          if (badge) { badge.style.display = 'inline-flex'; }
+          if (branchName) branchName.textContent = data.branch;
+          if (branchDisplay) branchDisplay.textContent = data.branch;
+        }
+
+        // Render commit list
+        const list = document.getElementById('git-commit-list');
+        if (!list) return;
+        if (!data.commits || data.commits.length === 0) {
+          list.innerHTML = '<div style="color:var(--text-muted);font-size:12px;padding:8px;">Không có commit nào.</div>';
+          return;
+        }
+        list.innerHTML = data.commits.map(c => {
+          const initials = (c.author || '?').split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase();
+          const hue = [...(c.author||'')].reduce((a, ch) => a + ch.charCodeAt(0), 0) % 360;
+          return `<div style="display:flex;gap:10px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.05);align-items:flex-start;">
+            <div style="width:28px;height:28px;border-radius:50%;background:hsl(${hue},60%,40%);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:white;flex-shrink:0;">${initials}</div>
+            <div style="min-width:0;flex:1;">
+              <div style="font-size:12px;font-weight:600;color:white;margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${c.message}">${c.message}</div>
+              <div style="font-size:11px;color:var(--text-muted);">${c.author} &bull; <code style="color:#a5b4fc;">${c.hash}</code> &bull; ${c.date}</div>
+            </div>
+          </div>`;
+        }).join('');
+      } catch (err) {
+        console.error('Git info error:', err);
       }
     }
 

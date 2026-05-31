@@ -229,6 +229,35 @@ app.post('/api/git-clone', (req, res) => {
   }
 });
 
+// Git info: branch + log
+app.get('/api/git/info', (req, res) => {
+  const { execSync } = require('child_process');
+  try {
+    let branch = 'unknown';
+    let commits: any[] = [];
+    let remoteUrl = '';
+    try {
+      branch = execSync('git rev-parse --abbrev-ref HEAD', { cwd: WORKSPACE_DIR, encoding: 'utf8', timeout: 5000 }).trim();
+    } catch {}
+    try {
+      remoteUrl = execSync('git remote get-url origin', { cwd: WORKSPACE_DIR, encoding: 'utf8', timeout: 5000 }).trim();
+    } catch {}
+    try {
+      const logRaw = execSync(
+        'git log --pretty=format:"%H|%an|%ae|%ar|%s" -20',
+        { cwd: WORKSPACE_DIR, encoding: 'utf8', timeout: 5000 }
+      ).trim();
+      commits = logRaw.split('\n').filter(Boolean).map(line => {
+        const [hash, author, email, date, ...msgParts] = line.split('|');
+        return { hash: hash?.substring(0, 7), author, email, date, message: msgParts.join('|') };
+      });
+    } catch {}
+    res.json({ branch, commits, remoteUrl });
+  } catch (err: any) {
+    res.json({ branch: 'unknown', commits: [], error: err.message });
+  }
+});
+
 // PTY Emulation & Fallback
 let ptySupported = process.env.USE_NODE_PTY !== 'false';
 let ptyModule: any = null;
