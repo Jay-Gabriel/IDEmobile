@@ -1791,8 +1791,11 @@
     let isAgentSettingsOpen = false;
 
     const geminiModelsList = [
-      { value: 'gemini-1.5-flash', label: 'gemini-1.5-flash (Nhanh & Ổn định)' },
-      { value: 'gemini-2.0-flash', label: 'gemini-2.0-flash (Mới nhất)' },
+      { value: 'gemini-3.5-flash', label: 'gemini-3.5-flash (Khuyên dùng)' },
+      { value: 'gemini-2.5-flash', label: 'gemini-2.5-flash' },
+      { value: 'gemini-3.1-flash-lite', label: 'gemini-3.1-flash-lite' },
+      { value: 'gemini-flash-latest', label: 'gemini-flash-latest' },
+      { value: 'gemini-1.5-flash', label: 'gemini-1.5-flash (Legacy)' },
       { value: 'gemini-1.5-pro', label: 'gemini-1.5-pro (Mạnh mẽ)' },
       { value: 'custom', label: 'Tự nhập tên model khác...' }
     ];
@@ -1866,7 +1869,7 @@
 
     function getDefaultModel() {
       const provider = document.getElementById('agent-settings-provider').value;
-      return provider === 'gemini' ? 'gemini-1.5-flash' : 'gpt-4o-mini';
+      return provider === 'gemini' ? 'gemini-3.5-flash' : 'gpt-4o-mini';
     }
 
     function saveAgentSettings() {
@@ -1905,7 +1908,7 @@
       // Read values from localStorage
       const apiKey = localStorage.getItem('agent_api_key') || '';
       const provider = localStorage.getItem('agent_provider') || 'gemini';
-      const model = localStorage.getItem('agent_model') || 'gemini-1.5-flash';
+      const model = localStorage.getItem('agent_model') || 'gemini-3.5-flash';
 
       // Emit to socket with settings payload
       if (socket && socket.connected) {
