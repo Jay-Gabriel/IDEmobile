@@ -269,7 +269,7 @@ class FallbackPty {
 function spawnPty(cwd: string) {
   const isWindows = process.platform === 'win32';
   const shell = isWindows ? 'powershell.exe' : 'bash';
-  const args = isWindows ? [] : ['--login'];
+  const args = isWindows ? [] : ['-i'];
 
   if (ptySupported && ptyModule) {
     try {
