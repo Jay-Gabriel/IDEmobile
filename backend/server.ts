@@ -327,12 +327,17 @@ app.post('/api/git/commit-push', (req, res) => {
   const { execSync } = require('child_process');
   const gitCwd = getGitCwd(activePath);
   try {
+    // Find current branch name
+    const branchName = execSync('git rev-parse --abbrev-ref HEAD', { cwd: gitCwd, encoding: 'utf8', timeout: 5000 }).trim();
+    if (!branchName || branchName === 'HEAD') {
+      throw new Error('Đang ở trạng thái detached HEAD hoặc không nhận diện được nhánh. Không thể push.');
+    }
     // Add all changes
     execSync('git add .', { cwd: gitCwd, timeout: 15000 });
     // Commit
     const commitOut = execSync(`git commit -m "${message.replace(/"/g, '\\"')}"`, { cwd: gitCwd, encoding: 'utf8', timeout: 15000 });
-    // Push
-    const pushOut = execSync('git push', { cwd: gitCwd, encoding: 'utf8', timeout: 45000 });
+    // Push specifically to current branch
+    const pushOut = execSync(`git push origin ${branchName}`, { cwd: gitCwd, encoding: 'utf8', timeout: 45000 });
     res.json({ success: true, commit: commitOut, push: pushOut });
   } catch (err: any) {
     const errMsg = (err.stderr || err.stdout || err.message || 'Unknown error');
