@@ -247,7 +247,7 @@ app.get('/api/git/info', (req, res) => {
         'git log --pretty=format:"%H|%an|%ae|%ar|%s" -20',
         { cwd: WORKSPACE_DIR, encoding: 'utf8', timeout: 5000 }
       ).trim();
-      commits = logRaw.split('\n').filter(Boolean).map(line => {
+      commits = logRaw.split('\n').filter(Boolean).map((line: string) => {
         const [hash, author, email, date, ...msgParts] = line.split('|');
         return { hash: hash?.substring(0, 7), author, email, date, message: msgParts.join('|') };
       });
