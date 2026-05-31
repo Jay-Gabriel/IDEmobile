@@ -1168,7 +1168,8 @@
     // ─── Git Info & Operations ──────────────────────────────────
     async function loadGitInfo() {
       try {
-        const res = await fetch(`${serverUrl}/api/git/info`);
+        const pathParam = activeFilePath ? `?activePath=${encodeURIComponent(activeFilePath)}` : '';
+        const res = await fetch(`${serverUrl}/api/git/info${pathParam}`);
         const data = await res.json();
 
         // Update branch badges
@@ -1245,7 +1246,8 @@
 
     async function loadGitBranches() {
       try {
-        const res = await fetch(`${serverUrl}/api/git/branches`);
+        const pathParam = activeFilePath ? `?activePath=${encodeURIComponent(activeFilePath)}` : '';
+        const res = await fetch(`${serverUrl}/api/git/branches${pathParam}`);
         const data = await res.json();
         const select = document.getElementById('git-branch-select');
         if (!select) return;
@@ -1280,7 +1282,7 @@
         const response = await fetch(`${serverUrl}/api/git/checkout`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ branch })
+          body: JSON.stringify({ branch, activePath: activeFilePath })
         });
         const data = await response.json();
         if (data.success) {
@@ -1314,7 +1316,7 @@
         const response = await fetch(`${serverUrl}/api/git/commit-push`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message })
+          body: JSON.stringify({ message, activePath: activeFilePath })
         });
         const data = await response.json();
         if (data.success) {

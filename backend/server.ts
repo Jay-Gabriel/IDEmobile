@@ -229,9 +229,54 @@ app.post('/api/git-clone', (req, res) => {
   }
 });
 
+// Helper to determine the correct directory to run git commands
+function getGitCwd(activePath?: string): string {
+  if (activePath) {
+    try {
+      let current = path.isAbsolute(activePath) ? activePath : path.resolve(WORKSPACE_DIR, activePath);
+      if (current.startsWith(WORKSPACE_DIR)) {
+        if (fs.existsSync(current) && !fs.statSync(current).isDirectory()) {
+          current = path.dirname(current);
+        }
+        while (current.startsWith(WORKSPACE_DIR) && current !== WORKSPACE_DIR) {
+          if (fs.existsSync(path.join(current, '.git'))) {
+            return current;
+          }
+          const parent = path.dirname(current);
+          if (parent === current) break;
+          current = parent;
+        }
+      }
+    } catch (e) {
+      console.error('Error walking up activePath for git root:', e);
+    }
+  }
+
+  // Scan immediate subdirectories for .git folder
+  try {
+    const items = fs.readdirSync(WORKSPACE_DIR);
+    for (const item of items) {
+      const fullPath = path.join(WORKSPACE_DIR, item);
+      if (fs.existsSync(fullPath) && fs.statSync(fullPath).isDirectory()) {
+        if (fs.existsSync(path.join(fullPath, '.git'))) {
+          return fullPath;
+        }
+      }
+    }
+  } catch (e) {
+    console.error('Error scanning workspace for git subdirs:', e);
+  }
+
+  return WORKSPACE_DIR;
+}
+
 // Git info: branch + tracking + changedFiles + log
 app.get('/api/git/info', (req, res) => {
   const { execSync } = require('child_process');
+  const activePath = req.query.activePath as string;
+  const gitCwd = getGitCwd(activePath);
+  console.log(`Executing Git info commands in CWD: ${gitCwd}`);
+
   try {
     let branch = 'unknown';
     let tracking = 'none';
@@ -239,18 +284,18 @@ app.get('/api/git/info', (req, res) => {
     let remoteUrl = '';
     let changedFiles: any[] = [];
     try {
-      branch = execSync('git rev-parse --abbrev-ref HEAD', { cwd: WORKSPACE_DIR, encoding: 'utf8', timeout: 5000 }).trim();
+      branch = execSync('git rev-parse --abbrev-ref HEAD', { cwd: gitCwd, encoding: 'utf8', timeout: 5000 }).trim();
     } catch {}
     try {
-      tracking = execSync('git rev-parse --abbrev-ref --symbolic-full-name @{u}', { cwd: WORKSPACE_DIR, encoding: 'utf8', timeout: 5000 }).trim();
+      tracking = execSync('git rev-parse --abbrev-ref --symbolic-full-name @{u}', { cwd: gitCwd, encoding: 'utf8', timeout: 5000 }).trim();
     } catch {
       tracking = branch !== 'unknown' ? `origin/${branch}` : 'none';
     }
     try {
-      remoteUrl = execSync('git remote get-url origin', { cwd: WORKSPACE_DIR, encoding: 'utf8', timeout: 5000 }).trim();
+      remoteUrl = execSync('git remote get-url origin', { cwd: gitCwd, encoding: 'utf8', timeout: 5000 }).trim();
     } catch {}
     try {
-      const statusRaw = execSync('git status --porcelain', { cwd: WORKSPACE_DIR, encoding: 'utf8', timeout: 5000 }).trim();
+      const statusRaw = execSync('git status --porcelain', { cwd: gitCwd, encoding: 'utf8', timeout: 5000 }).trim();
       changedFiles = statusRaw.split('\n').filter(Boolean).map((line: string) => {
         const status = line.substring(0, 2).trim();
         const path = line.substring(3).trim();
@@ -260,7 +305,7 @@ app.get('/api/git/info', (req, res) => {
     try {
       const logRaw = execSync(
         'git log --pretty=format:"%H|%an|%ae|%ar|%s" -20',
-        { cwd: WORKSPACE_DIR, encoding: 'utf8', timeout: 5000 }
+        { cwd: gitCwd, encoding: 'utf8', timeout: 5000 }
       ).trim();
       commits = logRaw.split('\n').filter(Boolean).map((line: string) => {
         const [hash, author, email, date, ...msgParts] = line.split('|');
@@ -275,18 +320,19 @@ app.get('/api/git/info', (req, res) => {
 
 // Git commit & push helper
 app.post('/api/git/commit-push', (req, res) => {
-  const { message } = req.body;
+  const { message, activePath } = req.body;
   if (!message || !message.trim()) {
     return res.status(400).json({ error: 'Commit message is required' });
   }
   const { execSync } = require('child_process');
+  const gitCwd = getGitCwd(activePath);
   try {
     // Add all changes
-    execSync('git add .', { cwd: WORKSPACE_DIR, timeout: 15000 });
+    execSync('git add .', { cwd: gitCwd, timeout: 15000 });
     // Commit
-    const commitOut = execSync(`git commit -m "${message.replace(/"/g, '\\"')}"`, { cwd: WORKSPACE_DIR, encoding: 'utf8', timeout: 15000 });
+    const commitOut = execSync(`git commit -m "${message.replace(/"/g, '\\"')}"`, { cwd: gitCwd, encoding: 'utf8', timeout: 15000 });
     // Push
-    const pushOut = execSync('git push', { cwd: WORKSPACE_DIR, encoding: 'utf8', timeout: 45000 });
+    const pushOut = execSync('git push', { cwd: gitCwd, encoding: 'utf8', timeout: 45000 });
     res.json({ success: true, commit: commitOut, push: pushOut });
   } catch (err: any) {
     const errMsg = (err.stderr || err.stdout || err.message || 'Unknown error');
@@ -297,8 +343,10 @@ app.post('/api/git/commit-push', (req, res) => {
 // Get all branches list
 app.get('/api/git/branches', (req, res) => {
   const { execSync } = require('child_process');
+  const activePath = req.query.activePath as string;
+  const gitCwd = getGitCwd(activePath);
   try {
-    const branchesRaw = execSync('git branch -a --format="%(refname:short)"', { cwd: WORKSPACE_DIR, encoding: 'utf8', timeout: 5000 });
+    const branchesRaw = execSync('git branch -a --format="%(refname:short)"', { cwd: gitCwd, encoding: 'utf8', timeout: 5000 });
     const branches = branchesRaw
       .split('\n')
       .map((b: string) => b.trim())
@@ -313,17 +361,18 @@ app.get('/api/git/branches', (req, res) => {
 
 // Checkout a branch
 app.post('/api/git/checkout', (req, res) => {
-  const { branch } = req.body;
+  const { branch, activePath } = req.body;
   if (!branch) {
     return res.status(400).json({ error: 'Branch name is required' });
   }
   const { execSync } = require('child_process');
+  const gitCwd = getGitCwd(activePath);
   try {
     let target = branch;
     if (branch.startsWith('origin/')) {
       target = branch.replace('origin/', '');
     }
-    const output = execSync(`git checkout ${target}`, { cwd: WORKSPACE_DIR, encoding: 'utf8', timeout: 10000 });
+    const output = execSync(`git checkout ${target}`, { cwd: gitCwd, encoding: 'utf8', timeout: 10000 });
     res.json({ success: true, output });
   } catch (err: any) {
     const errMsg = (err.stderr || err.stdout || err.message || 'Unknown error');
