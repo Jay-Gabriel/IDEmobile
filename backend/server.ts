@@ -40,6 +40,15 @@ if (fs.existsSync(publicPath)) {
 }
 app.use(express.static(publicPath));
 
+app.get('/', (req, res) => {
+  const indexPath = path.join(publicPath, 'index.html');
+  if (fs.existsSync(indexPath)) {
+    res.sendFile(indexPath);
+  } else {
+    res.status(404).send(`index.html not found at path: ${indexPath}. CWD is: ${process.cwd()}, __dirname is: ${__dirname}`);
+  }
+});
+
 let WORKSPACE_DIR = path.resolve(process.cwd(), 'workspace');
 if (!fs.existsSync(WORKSPACE_DIR)) {
   WORKSPACE_DIR = path.resolve(process.cwd(), 'backend', 'workspace');
