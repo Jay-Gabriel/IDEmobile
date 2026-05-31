@@ -21,7 +21,16 @@ const io = new Server(server, {
 
 app.use(cors());
 app.use(express.json());
+
 const publicPath = path.resolve(process.cwd(), 'public');
+console.log("CWD:", process.cwd());
+console.log("__dirname:", __dirname);
+console.log("Resolved publicPath:", publicPath);
+console.log("publicPath exists?:", fs.existsSync(publicPath));
+if (fs.existsSync(publicPath)) {
+  console.log("Files in publicPath:", fs.readdirSync(publicPath));
+}
+
 app.use(express.static(publicPath));
 
 const WORKSPACE_DIR = path.resolve(process.cwd(), 'workspace');
