@@ -664,7 +664,9 @@
               <i class="fa-solid fa-terminal"></i> Terminal bash/powershell
             </div>
             <div class="terminal-actions">
-              <!-- Actions if needed -->
+              <button class="btn btn-secondary" onclick="pasteToTerminal()" style="padding: 4px 8px; font-size: 11px; display: flex; gap: 4px; align-items: center; border-radius: 4px; border: 1px solid var(--border);" title="Dán vào Terminal">
+                <i class="fa-solid fa-clipboard"></i> Paste
+              </button>
             </div>
           </div>
           <div id="xterm-terminal"></div>
@@ -1151,6 +1153,22 @@
         socket.emit('agent-prompt', text);
       } else {
         addChatMessage('Lỗi: Socket chưa kết nối!', 'agent', false, true);
+      }
+    }
+
+    // Paste text helper for mobile browser terminals
+    async function pasteToTerminal() {
+      try {
+        const text = await navigator.clipboard.readText();
+        if (text && socket && socket.connected) {
+          socket.emit('terminal-input', text);
+        }
+      } catch (err) {
+        // Fallback for mobile browser clipboard permissions: show a prompt dialog
+        const text = prompt("Dán văn bản bạn muốn nhập vào Terminal tại đây:");
+        if (text && socket && socket.connected) {
+          socket.emit('terminal-input', text);
+        }
       }
     }
 
