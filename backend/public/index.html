@@ -1,0 +1,1143 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Antigravity Mobile Editor & Terminal</title>
+  
+  <!-- CSS imports -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/xterm.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+
+  <style>
+    :root {
+      --bg-main: #0b0f19;
+      --bg-panel: #111827;
+      --bg-card: #1f2937;
+      --bg-input: #374151;
+      --text-main: #f3f4f6;
+      --text-muted: #9ca3af;
+      --primary: #6366f1;
+      --primary-hover: #4f46e5;
+      --accent: #10b981;
+      --border: #374151;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body, html {
+      width: 100%;
+      height: 100%;
+      background-color: var(--bg-main);
+      color: var(--text-main);
+      font-family: 'Inter', sans-serif;
+      overflow: hidden;
+    }
+
+    .app-container {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      width: 100%;
+    }
+
+    /* Header styling */
+    header {
+      background-color: var(--bg-panel);
+      border-bottom: 1px solid var(--border);
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      z-index: 10;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .brand i {
+      font-size: 20px;
+      color: var(--primary);
+    }
+
+    .brand span {
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      background: linear-gradient(135deg, #a5b4fc, #6366f1);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .active-file-info {
+      font-size: 14px;
+      color: var(--text-muted);
+      font-family: 'Fira Code', monospace;
+      max-width: 40%;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      background: var(--bg-card);
+      padding: 6px 12px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .btn {
+      background-color: var(--primary);
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 500;
+      font-size: 14px;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn:hover {
+      background-color: var(--primary-hover);
+    }
+
+    .btn-secondary {
+      background-color: var(--bg-input);
+      border: 1px solid var(--border);
+      color: var(--text-main);
+    }
+
+    .btn-secondary:hover {
+      background-color: var(--border);
+    }
+
+    /* Main Area layout (Default: Desktop split screen) */
+    .main-area {
+      display: flex;
+      flex: 1;
+      height: calc(100% - 56px);
+      position: relative;
+    }
+
+    /* Sidebar - Files navigation */
+    .sidebar {
+      width: 260px;
+      background-color: var(--bg-panel);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      transition: all 0.3s ease;
+    }
+
+    .sidebar-header {
+      padding: 16px;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-muted);
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .sidebar-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .sidebar-actions i {
+      cursor: pointer;
+      color: var(--text-muted);
+      transition: color 0.2s;
+    }
+
+    .sidebar-actions i:hover {
+      color: var(--text-main);
+    }
+
+    .file-tree-container {
+      flex: 1;
+      overflow-y: auto;
+      padding: 10px 0;
+    }
+
+    .file-item {
+      display: flex;
+      align-items: center;
+      padding: 8px 16px;
+      font-size: 14px;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.2s;
+      gap: 8px;
+    }
+
+    .file-item:hover {
+      background-color: rgba(99, 102, 241, 0.1);
+      color: var(--text-main);
+    }
+
+    .file-item.active {
+      background-color: rgba(99, 102, 241, 0.15);
+      border-left: 3px solid var(--primary);
+      color: var(--text-main);
+    }
+
+    .file-item.directory {
+      color: #fbbf24;
+      font-weight: 500;
+    }
+
+    .file-item.file i {
+      color: var(--primary);
+    }
+
+    .creator-input-container {
+      padding: 12px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      gap: 6px;
+    }
+
+    .creator-input {
+      flex: 1;
+      background-color: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 6px 10px;
+      color: white;
+      font-size: 13px;
+    }
+
+    .creator-input:focus {
+      outline: none;
+      border-color: var(--primary);
+    }
+
+    /* Content view area */
+    .workspace-viewports {
+      flex: 1;
+      display: flex;
+      flex-direction: row;
+      background-color: var(--bg-main);
+    }
+
+    /* Editor Container */
+    .editor-container {
+      flex: 1;
+      height: 100%;
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      min-width: 0; /* Important for flex shrink */
+    }
+
+    #monaco-editor {
+      flex: 1;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Terminal Container */
+    .terminal-container {
+      flex: 1;
+      height: 100%;
+      background-color: #030712;
+      display: flex;
+      flex-direction: column;
+      padding: 0;
+      min-width: 0;
+      box-sizing: border-box;
+    }
+
+    .terminal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      height: 36px;
+      flex-shrink: 0;
+    }
+
+    .terminal-title {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+
+    #xterm-terminal {
+      flex: 1;
+      width: 100%;
+      height: calc(100% - 36px);
+      min-height: 100px;
+      overflow: hidden;
+      padding: 4px;
+      box-sizing: border-box;
+    }
+
+    /* Fix xterm canvas pointer events */
+    .xterm {
+      height: 100%;
+      cursor: text;
+    }
+    .xterm-screen canvas {
+      pointer-events: auto !important;
+    }
+    .xterm-viewport {
+      overflow-y: auto !important;
+    }
+
+    /* Mobile Bottom Tab bar (only visible on <= 768px) */
+    .mobile-nav-bar {
+      display: none;
+      background-color: var(--bg-panel);
+      border-top: 1px solid var(--border);
+      height: 60px;
+      align-items: center;
+      justify-content: space-around;
+      z-index: 100;
+    }
+
+    .mobile-tab-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted);
+      font-size: 11px;
+      gap: 4px;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      width: 60px;
+      height: 100%;
+    }
+
+    .mobile-tab-btn i {
+      font-size: 18px;
+    }
+
+    .mobile-tab-btn.active {
+      color: var(--primary);
+    }
+
+    /* Media query for mobile layout */
+    @media (max-width: 768px) {
+      .mobile-nav-bar {
+        display: flex;
+      }
+
+      .sidebar {
+        width: 100%;
+        height: 100%;
+        position: absolute;
+        top: 0;
+        left: 0;
+        z-index: 5;
+        display: none; /* Controlled by active tab */
+      }
+
+      .workspace-viewports {
+        flex-direction: column;
+        width: 100%;
+        height: 100%;
+        position: relative;
+      }
+
+      .editor-container {
+        width: 100%;
+        height: 100%;
+        position: absolute;
+        top: 0;
+        left: 0;
+        z-index: 4;
+        border-right: none;
+        display: none; /* Controlled by active tab */
+      }
+
+      .terminal-container {
+        width: 100%;
+        height: 100%;
+        position: absolute;
+        top: 0;
+        left: 0;
+        z-index: 3;
+        display: none; /* Controlled by active tab */
+      }
+
+      /* Classes to show active viewport on mobile */
+      .sidebar.mobile-active,
+      .editor-container.mobile-active,
+      .terminal-container.mobile-active {
+        display: flex !important;
+      }
+    }
+
+    /* Floating Agent Chat UI */
+    .agent-chat-btn {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--primary), var(--primary-hover));
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 20px rgba(99, 102, 241, 0.4);
+      cursor: pointer;
+      z-index: 999;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    
+    .agent-chat-btn:hover {
+      transform: scale(1.1);
+      box-shadow: 0 6px 24px rgba(99, 102, 241, 0.6);
+    }
+    
+    .agent-chat-panel {
+      position: fixed;
+      bottom: 96px;
+      right: 24px;
+      width: 360px;
+      height: 500px;
+      background: rgba(17, 24, 39, 0.95);
+      backdrop-filter: blur(10px);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+      display: flex;
+      flex-direction: column;
+      z-index: 998;
+      overflow: hidden;
+      transform: translateY(20px);
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    
+    .agent-chat-panel.active {
+      transform: translateY(0);
+      opacity: 1;
+      pointer-events: all;
+    }
+    
+    .chat-header {
+      padding: 14px 16px;
+      background: var(--bg-panel);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    
+    .chat-header h3 {
+      font-size: 14px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .chat-header h3 i {
+      color: var(--primary);
+    }
+    
+    .chat-close {
+      cursor: pointer;
+      color: var(--text-muted);
+      transition: color 0.2s;
+    }
+    
+    .chat-close:hover {
+      color: var(--text-main);
+    }
+    
+    .chat-messages {
+      flex: 1;
+      padding: 16px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    
+    .chat-msg {
+      max-width: 85%;
+      padding: 10px 14px;
+      border-radius: 10px;
+      font-size: 13px;
+      line-height: 1.4;
+      word-wrap: break-word;
+    }
+    
+    .chat-msg.user {
+      align-self: flex-end;
+      background-color: var(--primary);
+      color: white;
+      border-bottom-right-radius: 2px;
+    }
+    
+    .chat-msg.agent {
+      align-self: flex-start;
+      background-color: var(--bg-card);
+      color: var(--text-main);
+      border: 1px solid var(--border);
+      border-bottom-left-radius: 2px;
+      white-space: pre-wrap;
+    }
+    
+    .chat-msg.status {
+      align-self: center;
+      background-color: rgba(99, 102, 241, 0.1);
+      color: var(--primary);
+      font-size: 11px;
+      border-radius: 20px;
+      padding: 4px 12px;
+      border: 1px solid rgba(99, 102, 241, 0.2);
+    }
+    
+    .chat-msg.error {
+      align-self: center;
+      background-color: rgba(239, 68, 68, 0.1);
+      color: #ef4444;
+      font-size: 11px;
+      border-radius: 6px;
+      border: 1px solid rgba(239, 68, 68, 0.2);
+      padding: 6px 12px;
+    }
+
+    .chat-msg.tool {
+      align-self: stretch;
+      background-color: #1e1e2e;
+      border: 1px solid #313244;
+      border-radius: 8px;
+      padding: 10px;
+      font-family: 'Fira Code', monospace;
+      font-size: 11px;
+      color: #cdd6f4;
+    }
+    .chat-msg.tool details {
+      outline: none;
+    }
+    .chat-msg.tool summary {
+      cursor: pointer;
+      font-weight: 600;
+      color: #89b4fa;
+      user-select: none;
+      outline: none;
+      font-size: 12px;
+    }
+    .chat-msg.tool .tool-args {
+      color: #a6adc8;
+      margin-top: 6px;
+      font-size: 11px;
+      padding: 6px;
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 4px;
+      white-space: pre-wrap;
+      overflow-x: auto;
+    }
+    .chat-msg.tool .tool-result {
+      margin-top: 8px;
+      padding: 6px;
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 4px;
+      white-space: pre-wrap;
+      max-height: 180px;
+      overflow-y: auto;
+      color: #a6e3a1;
+      font-size: 11px;
+      border-top: 1px solid #313244;
+    }
+    .chat-msg.tool .tool-result.error {
+      color: #f38ba8;
+    }
+    
+    .chat-input-bar {
+      padding: 12px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      gap: 8px;
+      background: var(--bg-panel);
+    }
+    
+    .chat-input {
+      flex: 1;
+      background-color: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px 12px;
+      color: white;
+      font-size: 13px;
+    }
+    
+    .chat-input:focus {
+      outline: none;
+      border-color: var(--primary);
+    }
+  </style>
+
+  <!-- Socket.io client -->
+  <script src="/socket.io/socket.io.js"></script>
+  <!-- Xterm.js - served locally for reliability -->
+  <script src="/xterm.js"></script>
+  <script src="/xterm-addon-fit.js"></script>
+  <!-- Monaco loader -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.39.0/min/vs/loader.min.js"></script>
+</head>
+<body>
+
+  <div class="app-container">
+    <!-- Header -->
+    <header>
+      <div class="brand">
+        <i class="fa-solid fa-feather-pointed"></i>
+        <span>ANTIGRAVITY</span>
+      </div>
+      <div class="active-file-info" id="active-file-display">Không có file nào đang mở</div>
+      <div class="header-actions">
+        <button class="btn" id="save-btn" onclick="saveActiveFile()">
+          <i class="fa-solid fa-floppy-disk"></i> Lưu
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <div class="main-area">
+      <!-- Sidebar / File list (Starts active on mobile) -->
+      <div class="sidebar mobile-active" id="sidebar-panel">
+        <div class="sidebar-header">
+          <span>Thư mục dự án</span>
+          <div class="sidebar-actions">
+            <i class="fa-solid fa-arrows-rotate" onclick="loadFilesList()" title="Refresh"></i>
+          </div>
+        </div>
+        <div class="file-tree-container" id="file-tree">
+          <!-- Dinamic items here -->
+        </div>
+        <div class="creator-input-container">
+          <input type="text" class="creator-input" id="new-item-name" placeholder="Tên file hoặc thư mục/..." />
+          <button class="btn btn-secondary" onclick="createItem(false)" title="Tạo File"><i class="fa-solid fa-file-plus"></i></button>
+          <button class="btn btn-secondary" onclick="createItem(true)" title="Tạo Folder"><i class="fa-solid fa-folder-plus"></i></button>
+        </div>
+      </div>
+
+      <!-- Viewports -->
+      <div class="workspace-viewports">
+        <!-- Monaco Editor -->
+        <div class="editor-container" id="editor-panel">
+          <div id="monaco-editor"></div>
+        </div>
+
+        <!-- Xterm Terminal -->
+        <div class="terminal-container" id="terminal-panel">
+          <div class="terminal-header">
+            <div class="terminal-title">
+              <i class="fa-solid fa-terminal"></i> Terminal bash/powershell
+            </div>
+            <div class="terminal-actions">
+              <!-- Actions if needed -->
+            </div>
+          </div>
+          <div id="xterm-terminal"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mobile Navigation Tab Bar -->
+    <div class="mobile-nav-bar">
+      <button class="mobile-tab-btn active" id="tab-btn-files" onclick="switchMobileTab('files')">
+        <i class="fa-regular fa-folder-open"></i>
+        <span>Files</span>
+      </button>
+      <button class="mobile-tab-btn" id="tab-btn-editor" onclick="switchMobileTab('editor')">
+        <i class="fa-regular fa-file-code"></i>
+        <span>Editor</span>
+      </button>
+      <button class="mobile-tab-btn" id="tab-btn-terminal" onclick="switchMobileTab('terminal')">
+        <i class="fa-solid fa-terminal"></i>
+        <span>Terminal</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Floating Agent Chat UI -->
+  <div class="agent-chat-btn" id="agent-chat-toggle" onclick="toggleAgentChat()">
+    <i class="fa-solid fa-robot"></i>
+  </div>
+  
+  <div class="agent-chat-panel" id="agent-chat-panel">
+    <div class="chat-header">
+      <h3><i class="fa-solid fa-wand-magic-sparkles"></i> Antigravity Agent</h3>
+      <span class="chat-close" onclick="toggleAgentChat()"><i class="fa-solid fa-xmark"></i></span>
+    </div>
+    <div class="chat-messages" id="chat-messages-container">
+      <div class="chat-msg agent">Xin chào! Tôi là Antigravity Agent. Hãy nhập yêu cầu của bạn, ví dụ: "Viết hàm tính số Fibonacci vào file main.js".</div>
+    </div>
+    <div class="chat-input-bar">
+      <input type="text" class="chat-input" id="chat-input-field" placeholder="Hỏi Agent..." onkeydown="if(event.key === 'Enter') sendAgentMessage()" />
+      <button class="btn" onclick="sendAgentMessage()"><i class="fa-solid fa-paper-plane"></i></button>
+    </div>
+  </div>
+
+  <script>
+    let editor;
+    let activeFilePath = null;
+    let socket;
+    let term;
+    let fitAddon;
+    let serverUrl = window.location.origin;
+
+    // Load Monaco Editor
+    require.config({ paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.39.0/min/vs' } });
+    require(['vs/editor/editor.main'], function () {
+      editor = monaco.editor.create(document.getElementById('monaco-editor'), {
+        value: '// Chọn một file từ thanh bên để bắt đầu chỉnh sửa\n',
+        language: 'javascript',
+        theme: 'vs-dark',
+        automaticLayout: true,
+        fontSize: 14,
+        fontFamily: "'Fira Code', monospace",
+        minimap: { enabled: false },
+        scrollbar: {
+          vertical: 'visible',
+          horizontal: 'visible'
+        },
+        wordWrap: 'on'
+      });
+      console.log("Monaco Editor loaded successfully.");
+    });
+
+    // Load Files List
+    async function loadFilesList() {
+      try {
+        const response = await fetch(`${serverUrl}/api/files`);
+        const data = await response.json();
+        const container = document.getElementById('file-tree');
+        container.innerHTML = '';
+
+        if (!data.files || data.files.length === 0) {
+          container.innerHTML = '<div style="padding: 16px; font-size:13px; color: var(--text-muted)">Thư mục trống. Hãy tạo file mới ở dưới.</div>';
+          return;
+        }
+
+        // Separate directories and files
+        const dirs = data.files.filter(f => f.isDirectory).sort((a,b) => a.path.localeCompare(b.path));
+        const files = data.files.filter(f => !f.isDirectory).sort((a,b) => a.path.localeCompare(b.path));
+
+        const sortedItems = [...dirs, ...files];
+
+        sortedItems.forEach(item => {
+          const div = document.createElement('div');
+          div.className = `file-item ${item.isDirectory ? 'directory' : 'file'}`;
+          if (item.path === activeFilePath) {
+            div.classList.add('active');
+          }
+
+          const icon = item.isDirectory ? '<i class="fa-solid fa-folder"></i>' : '<i class="fa-regular fa-file"></i>';
+          div.innerHTML = `${icon}<span>${item.path}</span>`;
+          
+          if (!item.isDirectory) {
+            div.onclick = () => selectFile(item.path);
+          }
+          container.appendChild(div);
+        });
+      } catch (err) {
+        console.error("Error loading files list:", err);
+      }
+    }
+
+    // Select and read a file
+    async function selectFile(filePath) {
+      try {
+        const response = await fetch(`${serverUrl}/api/file?path=${encodeURIComponent(filePath)}`);
+        const data = await response.json();
+        if (data.error) {
+          alert(`Không thể đọc file: ${data.error}`);
+          return;
+        }
+
+        activeFilePath = filePath;
+        document.getElementById('active-file-display').textContent = filePath;
+
+        // Detect language based on extension
+        let ext = filePath.split('.').pop().toLowerCase();
+        let lang = 'javascript';
+        if (ext === 'html' || ext === 'htm') lang = 'html';
+        else if (ext === 'css') lang = 'css';
+        else if (ext === 'json') lang = 'json';
+        else if (ext === 'ts') lang = 'typescript';
+        else if (ext === 'tsx') lang = 'typescript';
+        else if (ext === 'md') lang = 'markdown';
+        else if (ext === 'py') lang = 'python';
+
+        // Set value and language model
+        editor.setValue(data.content);
+        monaco.editor.setModelLanguage(editor.getModel(), lang);
+
+        // Highlight active item
+        document.querySelectorAll('.file-item').forEach(el => {
+          if (el.querySelector('span').textContent === filePath) {
+            el.classList.add('active');
+          } else {
+            el.classList.remove('active');
+          }
+        });
+
+        // Switch to editor tab on mobile
+        if (window.innerWidth <= 768) {
+          switchMobileTab('editor');
+        }
+
+      } catch (err) {
+        console.error("Error selecting file:", err);
+      }
+    }
+
+    // Save active file
+    async function saveActiveFile() {
+      if (!activeFilePath) {
+        alert("Không có file nào đang mở để lưu!");
+        return;
+      }
+      const content = editor.getValue();
+      try {
+        const response = await fetch(`${serverUrl}/api/file`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            path: activeFilePath,
+            content: content
+          })
+        });
+        const data = await response.json();
+        if (data.success) {
+          const btn = document.getElementById('save-btn');
+          btn.innerHTML = '<i class="fa-solid fa-check"></i> Đã Lưu';
+          btn.style.backgroundColor = 'var(--accent)';
+          setTimeout(() => {
+            btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Lưu';
+            btn.style.backgroundColor = 'var(--primary)';
+          }, 1500);
+        } else {
+          alert(`Lỗi khi lưu file: ${data.error}`);
+        }
+      } catch (err) {
+        console.error("Error saving file:", err);
+        alert(`Lỗi kết nối server: ${err.message}`);
+      }
+    }
+
+    // Create a new File/Folder
+    async function createItem(isFolder) {
+      const input = document.getElementById('new-item-name');
+      const name = input.value.trim();
+      if (!name) {
+        alert("Vui lòng nhập tên file/thư mục!");
+        return;
+      }
+
+      try {
+        let response;
+        if (isFolder) {
+          response = await fetch(`${serverUrl}/api/create-folder`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ path: name })
+          });
+        } else {
+          response = await fetch(`${serverUrl}/api/file`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ path: name, content: '' })
+          });
+        }
+
+        const data = await response.json();
+        if (data.success || data.files) {
+          input.value = '';
+          await loadFilesList();
+          if (!isFolder) {
+            selectFile(name);
+          }
+        } else {
+          alert(`Lỗi: ${data.error}`);
+        }
+      } catch (err) {
+        alert(`Không thể tạo: ${err.message}`);
+      }
+    }
+
+    // Initialize Terminal Xterm.js
+    function initTerminal() {
+      const xtermEl = document.getElementById('xterm-terminal');
+
+      term = new Terminal({
+        cursorBlink: true,
+        fontSize: 14,
+        fontFamily: "'Fira Code', 'Consolas', monospace",
+        allowTransparency: false,
+        theme: {
+          background: '#030712',
+          foreground: '#f3f4f6',
+          cursor: '#6366f1',
+          selectionBackground: 'rgba(99,102,241,0.3)',
+          black: '#1f2937',
+          red: '#ef4444',
+          green: '#10b981',
+          yellow: '#f59e0b',
+          blue: '#3b82f6',
+          magenta: '#8b5cf6',
+          cyan: '#06b6d4',
+          white: '#f3f4f6',
+          brightBlack: '#374151',
+          brightWhite: '#ffffff'
+        }
+      });
+
+      // xterm-addon-fit UMD exposes FitAddon.FitAddon
+      fitAddon = new FitAddon.FitAddon();
+      term.loadAddon(fitAddon);
+      term.open(xtermEl);
+
+      // Delay fit to ensure container has dimensions
+      setTimeout(() => {
+        fitAddon.fit();
+        term.focus();
+      }, 100);
+
+      // Focus terminal on click
+      xtermEl.addEventListener('click', () => term.focus());
+
+      // Setup Socket IO
+      console.log("Initializing Socket.io client to URL:", serverUrl);
+      socket = io(serverUrl);
+
+      socket.on('connect', () => {
+        console.log("Socket connected! id=", socket.id);
+        term.write('\r\n\x1b[1;32m*** Đã kết nối Workspace Server! ***\x1b[0m\r\n\r\n');
+        socket.emit('terminal-resize', { cols: term.cols, rows: term.rows });
+      });
+
+      socket.on('connect_error', (error) => {
+        console.error("Socket error:", error);
+        term.write(`\r\n\x1b[1;31m*** Lỗi kết nối: ${error.message} ***\x1b[0m\r\n`);
+      });
+
+      socket.on('terminal-data', (data) => {
+        term.write(data);
+      });
+
+      term.onData((data) => {
+        if (socket && socket.connected) {
+          socket.emit('terminal-input', data);
+        }
+      });
+
+      // Agent stream handler
+      socket.on('agent-stream', (data) => {
+        if (data.type === 'status') {
+          addChatMessage(data.content, 'status', true);
+        } else if (data.type === 'text') {
+          if (!activeAgentMsgElement) {
+            activeAgentMsgElement = addChatMessage('', 'agent');
+          }
+          activeAgentMsgElement.textContent += data.content;
+          const c = document.getElementById('chat-messages-container');
+          c.scrollTop = c.scrollHeight;
+        } else if (data.type === 'tool-start') {
+          addToolCall(data.tool, data.input);
+        } else if (data.type === 'tool-end') {
+          updateToolResult(data.result);
+        } else if (data.type === 'error') {
+          addChatMessage(data.content, 'agent', false, true);
+        } else if (data.type === 'done') {
+          activeAgentMsgElement = null;
+          loadFilesList();
+          if (activeFilePath) selectFile(activeFilePath);
+        }
+      });
+
+      // Handle window resizes
+      window.addEventListener('resize', () => {
+        if (fitAddon) fitAddon.fit();
+        if (socket && socket.connected) {
+          socket.emit('terminal-resize', { cols: term.cols, rows: term.rows });
+        }
+      });
+    }
+
+    // Switch mobile viewport tab
+    function switchMobileTab(tab) {
+      document.getElementById('sidebar-panel').classList.remove('mobile-active');
+      document.getElementById('editor-panel').classList.remove('mobile-active');
+      document.getElementById('terminal-panel').classList.remove('mobile-active');
+
+      document.getElementById('tab-btn-files').classList.remove('active');
+      document.getElementById('tab-btn-editor').classList.remove('active');
+      document.getElementById('tab-btn-terminal').classList.remove('active');
+
+      if (tab === 'files') {
+        document.getElementById('sidebar-panel').classList.add('mobile-active');
+        document.getElementById('tab-btn-files').classList.add('active');
+      } else if (tab === 'editor') {
+        document.getElementById('editor-panel').classList.add('mobile-active');
+        document.getElementById('tab-btn-editor').classList.add('active');
+        if (editor) editor.layout();
+      } else if (tab === 'terminal') {
+        document.getElementById('terminal-panel').classList.add('mobile-active');
+        document.getElementById('tab-btn-terminal').classList.add('active');
+        setTimeout(() => {
+          if (fitAddon) fitAddon.fit();
+        }, 100);
+      }
+    }
+
+    let isChatOpen = false;
+    let activeAgentMsgElement = null;
+    let activeToolMsgElement = null;
+
+    function toggleAgentChat() {
+      isChatOpen = !isChatOpen;
+      const panel = document.getElementById('agent-chat-panel');
+      if (isChatOpen) {
+        panel.classList.add('active');
+        document.getElementById('chat-input-field').focus();
+      } else {
+        panel.classList.remove('active');
+      }
+    }
+
+    function addChatMessage(content, sender, isStatus = false, isError = false) {
+      const container = document.getElementById('chat-messages-container');
+      const div = document.createElement('div');
+      if (isStatus) {
+        div.className = 'chat-msg status';
+      } else if (isError) {
+        div.className = 'chat-msg error';
+      } else {
+        div.className = `chat-msg ${sender}`;
+      }
+      div.textContent = content;
+      container.appendChild(div);
+      container.scrollTop = container.scrollHeight;
+      return div;
+    }
+
+    function addToolCall(toolName, inputArgs) {
+      const container = document.getElementById('chat-messages-container');
+      const div = document.createElement('div');
+      div.className = 'chat-msg tool';
+      div.dataset.toolName = toolName;
+      
+      const details = document.createElement('details');
+      details.open = true;
+      
+      const summary = document.createElement('summary');
+      summary.innerHTML = `🛠️ <strong>Running Tool:</strong> <code>${toolName}</code>`;
+      
+      const argsDiv = document.createElement('div');
+      argsDiv.className = 'tool-args';
+      argsDiv.textContent = `Input: ${JSON.stringify(inputArgs, null, 2)}`;
+      
+      details.appendChild(summary);
+      details.appendChild(argsDiv);
+      div.appendChild(details);
+      container.appendChild(div);
+      container.scrollTop = container.scrollHeight;
+      
+      activeToolMsgElement = div;
+      return div;
+    }
+
+    function updateToolResult(result) {
+      if (!activeToolMsgElement) return;
+      const details = activeToolMsgElement.querySelector('details');
+      if (!details) return;
+      
+      const resultDiv = document.createElement('div');
+      const isError = result.startsWith('Error:') || result.startsWith('Tool error:');
+      resultDiv.className = isError ? 'tool-result error' : 'tool-result';
+      resultDiv.textContent = `Output:\n${result}`;
+      
+      details.appendChild(resultDiv);
+      details.open = false; // Auto collapse args on finish
+      
+      const summary = details.querySelector('summary');
+      const toolName = activeToolMsgElement.dataset.toolName;
+      summary.innerHTML = `✅ <strong>Completed Tool:</strong> <code>${toolName}</code>`;
+      
+      const container = document.getElementById('chat-messages-container');
+      container.scrollTop = container.scrollHeight;
+      activeToolMsgElement = null;
+    }
+
+    function sendAgentMessage() {
+      const input = document.getElementById('chat-input-field');
+      const text = input.value.trim();
+      if (!text) return;
+
+      // Add user message
+      addChatMessage(text, 'user');
+      input.value = '';
+
+      // Initialize agent streaming
+      activeAgentMsgElement = null;
+
+      // Emit to socket
+      if (socket && socket.connected) {
+        socket.emit('agent-prompt', text);
+      } else {
+        addChatMessage('Lỗi: Socket chưa kết nối!', 'agent', false, true);
+      }
+    }
+
+    // Initialize all
+    window.onload = () => {
+      loadFilesList();
+      initTerminal();
+
+      // On resize check layout
+      window.addEventListener('resize', () => {
+        if (window.innerWidth > 768) {
+          // Clear mobile active layouts
+          document.getElementById('sidebar-panel').classList.remove('mobile-active');
+          document.getElementById('editor-panel').classList.remove('mobile-active');
+          document.getElementById('terminal-panel').classList.remove('mobile-active');
+        } else {
+          // Default mobile screen
+          const hasActive = document.querySelector('.mobile-active');
+          if (!hasActive) {
+            switchMobileTab('files');
+          }
+        }
+      });
+    };
+  </script>
+</body>
+</html>
