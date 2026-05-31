@@ -101,6 +101,7 @@ async function runAgentGemini(prompt: string, socket: Socket, workspaceDir: stri
 
   let model: any = null;
   let usedModel = '';
+  const errors: string[] = [];
 
   for (const modelName of GEMINI_MODELS) {
     try {
@@ -115,18 +116,18 @@ async function runAgentGemini(prompt: string, socket: Socket, workspaceDir: stri
       socket.emit('agent-stream', { type: 'status', content: `Dùng model: ${modelName}` });
       break;
     } catch (e: any) {
-      if (e.message?.includes('429') || e.message?.includes('quota')) {
-        console.log(`Model ${modelName} quota exceeded, trying next...`);
-        continue;
-      }
-      // Other errors - still try next
-      console.log(`Model ${modelName} failed: ${e.message}, trying next...`);
+      const errMsg = e.message || String(e);
+      errors.push(`${modelName}: ${errMsg}`);
+      console.log(`Model ${modelName} failed: ${errMsg}, trying next...`);
       continue;
     }
   }
 
   if (!model) {
-    socket.emit('agent-stream', { type: 'error', content: 'Tất cả Gemini models đều đang bị rate limit. Vui lòng thử lại sau vài phút hoặc nạp tiền vào tài khoản Google AI.' });
+    socket.emit('agent-stream', { 
+      type: 'error', 
+      content: `Không thể kết nối đến Gemini. Chi tiết lỗi:\n${errors.join('\n')}\n\nVui lòng kiểm tra lại tính chính xác của API Key hoặc khu vực địa lý.` 
+    });
     return;
   }
 
