@@ -22,21 +22,38 @@ const io = new Server(server, {
 app.use(cors());
 app.use(express.json());
 
-const publicPath = path.resolve(process.cwd(), 'public');
-console.log("CWD:", process.cwd());
-console.log("__dirname:", __dirname);
-console.log("Resolved publicPath:", publicPath);
+// Fallback path resolution that checks CWD first, then __dirname relative paths (dev vs prod dist)
+let publicPath = path.resolve(process.cwd(), 'public');
+if (!fs.existsSync(publicPath)) {
+  publicPath = path.resolve(process.cwd(), 'backend', 'public');
+}
+if (!fs.existsSync(publicPath)) {
+  publicPath = path.resolve(__dirname, 'public');
+}
+if (!fs.existsSync(publicPath)) {
+  publicPath = path.resolve(__dirname, '../public');
+}
+console.log("Final Selected publicPath:", publicPath);
 console.log("publicPath exists?:", fs.existsSync(publicPath));
 if (fs.existsSync(publicPath)) {
   console.log("Files in publicPath:", fs.readdirSync(publicPath));
 }
-
 app.use(express.static(publicPath));
 
-const WORKSPACE_DIR = path.resolve(process.cwd(), 'workspace');
+let WORKSPACE_DIR = path.resolve(process.cwd(), 'workspace');
+if (!fs.existsSync(WORKSPACE_DIR)) {
+  WORKSPACE_DIR = path.resolve(process.cwd(), 'backend', 'workspace');
+}
+if (!fs.existsSync(WORKSPACE_DIR)) {
+  WORKSPACE_DIR = path.resolve(__dirname, 'workspace');
+}
+if (!fs.existsSync(WORKSPACE_DIR)) {
+  WORKSPACE_DIR = path.resolve(__dirname, '../workspace');
+}
 if (!fs.existsSync(WORKSPACE_DIR)) {
   fs.mkdirSync(WORKSPACE_DIR, { recursive: true });
 }
+console.log("Final Selected WORKSPACE_DIR:", WORKSPACE_DIR);
 
 // Ensure path is safe within workspace directory
 function getSafePath(reqPath: string): string {
