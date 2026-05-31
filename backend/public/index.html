@@ -344,8 +344,24 @@
 
     /* Media query for mobile layout */
     @media (max-width: 768px) {
+      .main-area {
+        height: calc(100% - 56px - 60px) !important;
+      }
+
       .mobile-nav-bar {
         display: flex;
+      }
+
+      .mobile-cmd-bar {
+        display: flex;
+        gap: 6px;
+        padding: 8px 12px;
+        background-color: var(--bg-panel);
+        border-top: 1px solid var(--border);
+        flex-shrink: 0;
+        align-items: center;
+        width: 100%;
+        box-sizing: border-box;
       }
 
       .sidebar {
@@ -752,16 +768,22 @@
           <div id="xterm-terminal"></div>
           <!-- Mobile Command Input Bar -->
           <div class="mobile-cmd-bar" id="mobile-cmd-bar">
+            <button class="btn btn-secondary" style="padding:8px 10px;font-size:12px;height:36px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.03);border:1px solid var(--border);cursor:pointer;" onclick="navigateMobileCmdHistory(-1)" title="Lệnh trước">
+              <i class="fa-solid fa-arrow-up" style="color:var(--text-muted);"></i>
+            </button>
+            <button class="btn btn-secondary" style="padding:8px 10px;font-size:12px;height:36px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.03);border:1px solid var(--border);cursor:pointer;" onclick="navigateMobileCmdHistory(1)" title="Lệnh sau">
+              <i class="fa-solid fa-arrow-down" style="color:var(--text-muted);"></i>
+            </button>
             <input type="text" id="mobile-cmd-input"
-              placeholder="Nhập lệnh hoặc paste vào đây..."
+              placeholder="Nhập lệnh..."
               autocorrect="off" autocapitalize="none" autocomplete="off" spellcheck="false"
-              style="flex:1;background:rgba(0,0,0,0.5);border:1px solid var(--border);border-radius:6px;padding:8px 12px;color:#f3f4f6;font-size:13px;font-family:'Fira Code',monospace;outline:none;"
+              style="flex:1;background:rgba(0,0,0,0.5);border:1px solid var(--border);border-radius:6px;padding:8px 12px;color:#f3f4f6;font-size:13px;font-family:'Fira Code',monospace;outline:none;min-width:0;height:36px;"
               onkeydown="handleMobileCmdKey(event)"
             />
-            <button class="btn" style="padding:8px 12px;font-size:13px;" onclick="sendMobileCmd()" title="Gửi lệnh">
+            <button class="btn" style="padding:8px 12px;font-size:13px;height:36px;cursor:pointer;" onclick="sendMobileCmd()" title="Gửi lệnh">
               <i class="fa-solid fa-paper-plane"></i>
             </button>
-            <button class="btn btn-secondary" style="padding:8px 12px;font-size:13px;" onclick="sendMobileCmdEnter()" title="Enter">
+            <button class="btn btn-secondary" style="padding:8px 12px;font-size:13px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer;" onclick="sendMobileCmdEnter()" title="Enter">
               &#x21B5;
             </button>
           </div>
@@ -1511,11 +1533,43 @@
     }
 
     // ─── Mobile Command Bar ───────────────────────────────────
+    let mobileCmdHistory = [];
+    let mobileCmdHistoryIndex = -1;
+
+    function navigateMobileCmdHistory(dir) {
+      const input = document.getElementById('mobile-cmd-input');
+      if (!input || mobileCmdHistory.length === 0) return;
+
+      if (dir === -1) { // Up button: previous command
+        if (mobileCmdHistoryIndex > 0) {
+          mobileCmdHistoryIndex--;
+        } else if (mobileCmdHistoryIndex === -1) {
+          mobileCmdHistoryIndex = mobileCmdHistory.length - 1;
+        }
+        input.value = mobileCmdHistory[mobileCmdHistoryIndex];
+      } else if (dir === 1) { // Down button: next command
+        if (mobileCmdHistoryIndex >= 0 && mobileCmdHistoryIndex < mobileCmdHistory.length - 1) {
+          mobileCmdHistoryIndex++;
+          input.value = mobileCmdHistory[mobileCmdHistoryIndex];
+        } else {
+          mobileCmdHistoryIndex = -1;
+          input.value = '';
+        }
+      }
+    }
+
     function sendMobileCmd() {
       const input = document.getElementById('mobile-cmd-input');
       const text = input.value;
       if (socket && socket.connected && text !== '') {
-        // Send each character then newline
+        // Save to command history if different from last
+        if (mobileCmdHistory.length === 0 || mobileCmdHistory[mobileCmdHistory.length - 1] !== text) {
+          mobileCmdHistory.push(text);
+          if (mobileCmdHistory.length > 50) mobileCmdHistory.shift();
+        }
+        mobileCmdHistoryIndex = -1; // reset
+
+        // Send characters then newline
         socket.emit('terminal-input', text + '\r');
         input.value = '';
         input.focus();
