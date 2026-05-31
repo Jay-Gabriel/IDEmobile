@@ -49,16 +49,22 @@ app.get('/', (req, res) => {
   }
 });
 
-let WORKSPACE_DIR = path.resolve(process.cwd(), 'workspace');
-if (!fs.existsSync(WORKSPACE_DIR)) {
-  WORKSPACE_DIR = path.resolve(process.cwd(), 'backend', 'workspace');
+let WORKSPACE_DIR = process.env.WORKSPACE_PATH
+  ? path.resolve(process.cwd(), process.env.WORKSPACE_PATH)
+  : path.resolve(process.cwd(), 'workspace');
+
+if (!process.env.WORKSPACE_PATH) {
+  if (!fs.existsSync(WORKSPACE_DIR)) {
+    WORKSPACE_DIR = path.resolve(process.cwd(), 'backend', 'workspace');
+  }
+  if (!fs.existsSync(WORKSPACE_DIR)) {
+    WORKSPACE_DIR = path.resolve(__dirname, 'workspace');
+  }
+  if (!fs.existsSync(WORKSPACE_DIR)) {
+    WORKSPACE_DIR = path.resolve(__dirname, '../workspace');
+  }
 }
-if (!fs.existsSync(WORKSPACE_DIR)) {
-  WORKSPACE_DIR = path.resolve(__dirname, 'workspace');
-}
-if (!fs.existsSync(WORKSPACE_DIR)) {
-  WORKSPACE_DIR = path.resolve(__dirname, '../workspace');
-}
+
 if (!fs.existsSync(WORKSPACE_DIR)) {
   fs.mkdirSync(WORKSPACE_DIR, { recursive: true });
 }
